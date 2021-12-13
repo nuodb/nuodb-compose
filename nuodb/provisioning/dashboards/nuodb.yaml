@@ -1,0 +1,26 @@
+apiVersion: 1
+
+providers:
+- name: 'nuodb'
+  orgId: 1
+  folder: 'nuodb'
+  type: file
+  disableDeletion: false
+  editable: true
+  allowUiUpdates: true
+  updateIntervalSeconds: 10 #how often Grafana will scan for changed dashboards
+  options:
+    path: /etc/grafana/provisioning/dashboards/nuodb
+- name: 'nuodb_ext'
+  orgId: 1
+  folder: 'nuodb_ext'
+  type: file
+  disableDeletion: false
+  editable: true
+  allowUiUpdates: true
+  updateIntervalSeconds: 10 #how often Grafana will scan for changed dashboards
+  options:
+    path: /etc/grafana/provisioning/dashboards/nuodb_ext
+
+    
+

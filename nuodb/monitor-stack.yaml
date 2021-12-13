@@ -1,0 +1,20 @@
+version: '3'
+services:
+  influxdb:
+    image: influxdb:1.8
+    ports:
+      # The API for InfluxDB is served on port 8086
+      - "8086:8086"
+      - "8082:8082"
+    volumes:
+      - ./conf/initdb.sh:/docker-entrypoint-initdb.d/initdb.sh
+  grafana:
+    image: grafana/grafana:7.5.4
+    depends_on:
+      - influxdb
+    environment:
+      - INFLUX_HOST=influxdb
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000"

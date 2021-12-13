@@ -1,0 +1,120 @@
+version: '3'
+services:
+  nuoadmin1:
+    image: $NUODB_VERSION
+    environment:
+      NUODB_DOMAIN_ENTRYPOINT: $PEER_ADDRESS
+    hostname: $PEER_ADDRESS
+    ports:
+      - 48004-48005:48004-48005
+      - 8888:8888
+    command: [ "nuoadmin" ]
+
+  sm:
+    image: $NUODB_VERSION
+    environment:
+      # push the current resolved value of the VAR
+      NUOCMD_API_SERVER:
+    hostname: sm1
+    depends_on:
+      - nuoadmin1
+    volumes:
+      - ${IMPORT_SOURCE:-./.env}:${IMPORT_PATH:-/var/tmp/env}
+    command:
+      - "sh"
+      - "-c"
+      - |
+        if [ -n "$IMPORT_SOURCE" -a -f $IMPORT_PATH -a ! -f /var/opt/nuodb/archive/1.atm ]; then
+           echo "Importing from $IMPORT_PATH into /var/opt/nuodb/archive..."
+           tar xf $IMPORT_PATH --strip-components ${IMPORT_LEVEL:-1} -C /var/opt/nuodb/archive || exit 98
+           nuodocker restore archive --origin-dir /var/opt/nuodb/archive --restore-dir /var/opt/nuodb/archive --db-name $DB_NAME --clean-metadata || exit 99
+        fi
+        nuodocker start sm --db-name "$DB_NAME" --server-id "$PEER_ADDRESS" --dba-user "$DB_USER" --dba-password "$DB_PASSWORD" --options "alt-address sm1" --database-options "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee}"
+
+  te1:
+    image: $NUODB_VERSION
+    environment:
+      # push the current resolved value of the VAR
+      NUOCMD_API_SERVER:
+    hostname: te1
+    depends_on:
+      - nuoadmin1
+      - sm
+    ports:
+      - 48006:48006
+    command: [ "nuodocker", "start", "te", "--db-name", "$DB_NAME", "--server-id", "$PEER_ADDRESS", "--options", "alt-address ${EXTERNAL_ADDRESS:-te1}" ]
+
+  # te2:
+  #   image: $NUODB_VERSION
+  #   environment:
+  #     # push the current resolved value of the VAR
+  #     NUOCMD_API_SERVER:
+  #   hostname: te2
+  #   scale: 0
+  #   depends_on:
+  #     - nuoadmin1
+  #     - sm
+  #   ports:
+  #     - 48007:48006
+  #   command: [ "nuodocker", "start", "te", "--db-name", "$DB_NAME", "--server-id", "$PEER_ADDRESS", "--options", "alt-address ${EXTERNAL_ADDRESS:-te2}" ]
+
+  influxdb:
+    image: influxdb:1.8
+    # ports:
+      # The API for InfluxDB is served on port 8086
+      # - "8086:8086"
+      # - "8082:8082"
+    volumes:
+      - ./conf/initdb.sh:/docker-entrypoint-initdb.d/initdb.sh
+  nuocd-sm:
+    image: nuodb/nuodb-collector:latest
+    depends_on:
+      - nuoadmin1
+      - sm
+      - influxdb
+    environment:
+      INFLUXURL: http://influxdb:8086
+      NUOCD_HOSTNAME: sm1
+    pid: 'service:sm'
+  nuocd-te1:
+    image: nuodb/nuodb-collector:latest
+    depends_on:
+      - nuoadmin1
+      - te1
+      - influxdb
+    environment:
+      INFLUXURL: http://influxdb:8086
+      NUOCD_HOSTNAME: te1
+    pid: 'service:te1'
+  # nuocd-te2:
+  #   image: nuodb/nuodb-collector:latest
+  #   depends_on:
+  #     - nuoadmin1
+  #     - te2
+  #     - influxdb
+  #   environment:
+  #     INFLUXURL: http://influxdb:8086
+  #     NUOCMD_API_SERVER:
+  #     NUOCD_HOSTNAME: te2
+  #   pid: 'service:te2'
+    
+  grafana:
+    image: grafana/grafana:7.5.4
+    depends_on:
+      - influxdb
+    environment:
+      - INFLUX_HOST=influxdb
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000"
+  # ycsb-demo:
+  #   image: nuodb/ycsb:latest
+  #   depends_on:
+  #     - te1
+  #   environment:
+  #     PEER_ADDRESS:
+  #     DB_NAME:
+  #     DB_USER:
+  #     DB_PASSWORD:
+  #   command: ["/driver/startup.sh"]
