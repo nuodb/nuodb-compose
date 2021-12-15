@@ -11,7 +11,7 @@ services:
     command:
     - "nuoadmin"
     - "--"
-    - "pendingProcessTimeout=600000"
+    - "pendingProcessTimeout=${MAX_IMPORT_TIME_MS:-600000}"
     - "pendingReconnectTimeout=90000"
     - "thrift.message.max=1073741824"
     - "processLivenessCheckSec=30"
