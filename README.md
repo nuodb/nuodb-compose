@@ -10,7 +10,7 @@ These docker compose files will create:
 Note that the container names will have the `project` name embedded - which is the name of the directory (`nuodb`), or set with the `-p` option to `docker-compose`.
 
 # Instructions
-0. clone the repo
+0. clone the repo;
 1. cd to the `nuodb` directory;
 2. edit the `.env` file
    - if you want to use the a specific SQL engine, you will need an image that supports that engine;

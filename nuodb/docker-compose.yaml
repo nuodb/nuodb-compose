@@ -8,7 +8,13 @@ services:
     ports:
       - 48004-48005:48004-48005
       - 8888:8888
-    command: [ "nuoadmin" ]
+    command:
+    - "nuoadmin"
+    - "--"
+    - "pendingProcessTimeout=600000"
+    - "pendingReconnectTimeout=90000"
+    - "thrift.message.max=1073741824"
+    - "processLivenessCheckSec=30"
 
   sm:
     image: $NUODB_VERSION
