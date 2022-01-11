@@ -2,6 +2,10 @@ version: '3'
 services:
   nuoadmin1:
     image: $NUODB_IMAGE
+
+    # Do NOT remove this env_file value!!
+    env_file: .env
+
     environment:
       NUODB_DOMAIN_ENTRYPOINT: $PEER_ADDRESS
     hostname: $PEER_ADDRESS
@@ -35,6 +39,7 @@ services:
       - "sh"
       - "-c"
       - |
+        echo "ARCHIVE_DIR=$$ARCHIVE_DIR"
         if [ -n "$IMPORT_SOURCE" -a -f "$IMPORT_PATH" -a ! -f $$ARCHIVE_DIR/1.atm ]; then
            echo "Importing from $IMPORT_PATH into $$ARCHIVE_DIR..."
            tar xf $IMPORT_PATH --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
@@ -138,7 +143,7 @@ services:
     depends_on:
       - influxdb
     environment:
-      - INFLUX_HOST=influxdb
+      INFLUX_HOST: influxdb
     volumes:
       - ./provisioning:/etc/grafana/provisioning
     ports:

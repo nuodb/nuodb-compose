@@ -23,6 +23,7 @@ ARCHIVE_PATH=
 # set IMPORT_SOURCE to the path of a LOCAL file on the host where docker-compose is being run.
 # It will be mounted from that location into the SM container, from where it will be extracted
 # and used as the initial state of the database.
+# The person supplying the backup TAR file can advise on any non-standard values required for IMPORT_LEVEL.
 IMPORT_SOURCE=
 IMPORT_LEVEL=1
 IMPORT_PATH=/var/opt/nuodb/import.tz
