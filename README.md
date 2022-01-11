@@ -21,6 +21,8 @@ Note that the container names will have the `project` name embedded - which is t
    - if you want to use a specific SQL engine - for example `scalar` - you will need an image that supports that engine;
    - if you want to access the database from outside the `docker network` - for example from an app running direcly on the local host - then set `EXTERNAL_ADDRESS`;
      - either in the `.env` file, _or_ by setting `EXTERNAL_ADDRESS` on the `docker-compose up` command-line;
+     - set to the address of the local host machine (Ex `192.168.0.123`);
+     - on some platforms, setting `EXTERNAL_ADDRESS` to `127.0.0.1` also works;
    - if you want to import initial state from a database backup into the new database, set `IMPORT_SOURCE` to a path
      on the _local_ machine. The SM container will mount this file as a volume and extract (`untar`) it into the
      archive dir prior to starting the SM process;
