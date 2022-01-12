@@ -30,6 +30,11 @@ Note that the container names will have the `project` name embedded - which is t
 
 4. create and start the nuodb database with `docker-compose up -d`.
 
+_*NOTE:*_ The `docker-compose` command may suggest to you to use `docker compose` instead.
+
+*Don't - it doesn't work.*
+
+
 ## Stopping the database ##
 1. To stop all containers, but retain all stored state including the database contents:
   - cd to the `nuodb` directory;
@@ -48,10 +53,7 @@ Note that the container names will have the `project` name embedded - which is t
 1. You can specify env vars on the command-line in linux or MacOS, by setting them _before_ the `docker-compose` command.
 - Ex: `$ IMPORT_SOURCE=./mydb.bak.tgz STARTUP_TIMEOUT=300 docker-compose up -d`
 
-2. the `docker-compose` command may suggest to you to use `docker compose` instead.
-Don't - it doesn't work.
-
-3. the initial state of the database can be imported using `IMPORT_LOCAL` and/or `IMPORT_REMOTE`, as follows:
+2. the initial state of the database can be imported using `IMPORT_LOCAL` and/or `IMPORT_REMOTE`, as follows:
 - set `IMPORT_LOCAL` to a path on the _local_ machine.
   The SM container will mount this file as a volume and extract (`untar`) it into the
   archive dir prior to starting the SM process;
