@@ -31,7 +31,7 @@ services:
     depends_on:
       - nuoadmin1
     volumes:
-      - ${IMPORT_LOCAL:-./.env}:${IMPORT_MOUNT:-/var/tmp/env}
+      - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}
 
     ## NOTE: use '$$' for any variable that is to be evaluated at runtime IN THE SHELL.
     # Any variable with a single '$' is resolved by docker-compose and written literally into the command string.
@@ -40,14 +40,26 @@ services:
       - "-c"
       - |
         echo "ARCHIVE_DIR=$$ARCHIVE_DIR"
-        if [ ! -f "$$ARCHIVE_DIR/1.atm" -a -n '$IMPORT_LOCAL' -o -n '$IMPORT_REMOTE' ]; then
-          if [ -n '$IMPORT_LOCAL' -a -f '$IMPORT_MOUNT' ]; then
-            echo "Importing from $IMPORT_MOUNT into $$ARCHIVE_DIR..."
-            tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || exit 98
-          elif [[ '$IMPORT_REMOTE' = ?*://?* ]]; then
-            echo "Importing from $IMPORT_REMOTE into $$ARCHIVE_DIR..."
+        if [ -n '$IMPORT_LOCAL$IMPORT_REMOTE' -a ! -f "$$ARCHIVE_DIR/1.atm" ]; then
+          echo "Importing into empty archive..."
+          if [[ '$IMPORT_REMOTE' = ?*://?* && ! -s "$IMPORT_MOUNT" ]]; then
             [ -n '$IMPORT_AUTH' -a '$IMPORT_AUTH' != ':' ] && curlAuth='--user $IMPORT_AUTH'
-            curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
+            if [ -n '$IMPORT_LOCAL' -a ! -d '$IMPORT_MOUNT' ]; then
+              echo "Downloading $IMPORT_REMOTE into host:$IMPORT_LOCAL..."
+              curl -k $${curlAuth:-} '$IMPORT_REMOTE' > '$IMPORT_MOUNT' || exit 98
+            else
+              [ -n "$IMPORT_LOCAL" -a -d "$IMPORT_MOUNT" ] && echo "host:$IMPORT_LOCAL is not a file - ignoring..."
+              echo "Importing from $IMPORT_REMOTE into $$ARCHIVE_DIR..."
+              curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
+            fi
+          fi
+          if [ -n '$IMPORT_LOCAL' -a -s '$IMPORT_MOUNT' -a ! -d '$IMPORT_MOUNT' ]; then
+            [[ '$IMPORT_REMOTE' = ?*://?* ]] && echo "Using host:$IMPORT_LOCAL - assuming it is a cached copy of $IMPORT_REMOTE..."
+            echo "Importing from host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
+            tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || exit 98
+          elif [ -n '$IMPORT_LOCAL' ]; then
+            echo "host:$IMPORT_LOCAL is not a valid, non-empty file - import failed..."
+            exit 98
           fi
           [ $$(find "$$ARCHIVE_DIR" -name 1.atm | wc -l) -gt 0 ] && echo "Imported data looks good..." || echo "Imported archive does not seem to contain valid data: $$(ls $$ARCHIVE_DIR)"
           nuodocker restore archive --origin-dir "$$ARCHIVE_DIR" --restore-dir "$$ARCHIVE_DIR" --db-name "$DB_NAME" --clean-metadata || exit 99
