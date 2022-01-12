@@ -11,7 +11,8 @@ ENGINE_MEM=1Gi
 SQL_ENGINE=vee
 
 # Set to a larger value if SM startup takes unusually long
-# - for example if IMPORT_SOURCE (see below) is a large file that takes multiple minutes to extract.
+# - for example if IMPORT_LOCAL or IMPORT_REMOTE (see below) is a large file that takes multiple minutes to extract.
+# Value is in seconds.
 STARTUP_TIMEOUT=60
 
 # Uncomment and set, or set on the docker-compose command-line to add further engine options
@@ -20,16 +21,28 @@ STARTUP_TIMEOUT=60
 # normally this is left unset, causing the default to be used.
 ARCHIVE_PATH=
 
-# set IMPORT_SOURCE to the path of a LOCAL file on the host where docker-compose is being run.
-# It will be mounted from that location into the SM container, from where it will be extracted
-# and used as the initial state of the database.
-# The person supplying the backup TAR file can advise on any non-standard values required for IMPORT_LEVEL.
-IMPORT_SOURCE=
-IMPORT_LEVEL=1
-IMPORT_PATH=/var/opt/nuodb/import.tz
+# set IMPORT_LOCAL to the path of a LOCAL tar file on the host where docker-compose is being run.
+# The SM container will mount the file, extract (untar) it and use the contents as the initial state of the database.
+IMPORT_LOCAL=
 
-PEER_ADDRESS=nuoadmin1
-NUOCMD_API_SERVER=nuoadmin1:8888
+# set IMPORT_REMOTE to the URL of a REMOTE tar file on a remote server - typically http(s) or sftp.
+# The SM container will download the file, extract (untar) it, and use the contents as the initial state of the database.
+IMPORT_REMOTE=
+
+# If IMPORT_REMOTE is set, and the remote server requires an authentication token which is NOT embedded in IMPORT_REMOTE,
+# then set IMPORT_AUTH, in the form user:password
+IMPORT_AUTH=
+
+# The person supplying the backup TAR file for IMPORT (either local or remote)
+# can advise on any non-standard value required for IMPORT_LEVEL.
+IMPORT_LEVEL=1
+
+# This value is not normally changed.
+IMPORT_MOUNT=/var/opt/nuodb/import.tz
+
+# Uncomment to adjust AP naming, or adjust to different naming.
+# PEER_ADDRESS=nuoadmin1
+# NUOCMD_API_SERVER=nuoadmin1:8888
 
 # Uncomment and set, or set on the docker-compose command-line to enable external access to the database
 # EXTERNAL_ADDRESS=

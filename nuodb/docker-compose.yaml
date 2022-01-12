@@ -7,8 +7,8 @@ services:
     env_file: .env
 
     environment:
-      NUODB_DOMAIN_ENTRYPOINT: $PEER_ADDRESS
-    hostname: $PEER_ADDRESS
+      NUODB_DOMAIN_ENTRYPOINT: ${PEER_ADDRESS:-nuoadmin1}
+    hostname: ${PEER_ADDRESS:-nuoadmin1}
     ports:
       - 48004-48005:48004-48005
       - 8888:8888
@@ -24,14 +24,14 @@ services:
     image: $NUODB_IMAGE
     environment:
       # push the current resolved value of the VAR
-      NUOCMD_API_SERVER:
+      NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
     hostname: sm1
     depends_on:
       - nuoadmin1
     volumes:
-      - ${IMPORT_SOURCE:-./.env}:${IMPORT_PATH:-/var/tmp/env}
+      - ${IMPORT_LOCAL:-./.env}:${IMPORT_MOUNT:-/var/tmp/env}
 
     ## NOTE: use '$$' for any variable that is to be evaluated at runtime IN THE SHELL.
     # Any variable with a single '$' is resolved by docker-compose and written literally into the command string.
@@ -40,19 +40,25 @@ services:
       - "-c"
       - |
         echo "ARCHIVE_DIR=$$ARCHIVE_DIR"
-        if [ -n "$IMPORT_SOURCE" -a -f "$IMPORT_PATH" -a ! -f $$ARCHIVE_DIR/1.atm ]; then
-           echo "Importing from $IMPORT_PATH into $$ARCHIVE_DIR..."
-           tar xf $IMPORT_PATH --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
-           find $$ARCHIVE_DIR -name '1.*'
-           nuodocker restore archive --origin-dir $$ARCHIVE_DIR --restore-dir $$ARCHIVE_DIR --db-name $DB_NAME --clean-metadata || exit 99
+        if [ ! -f "$$ARCHIVE_DIR/1.atm" -a -n '$IMPORT_LOCAL' -o -n '$IMPORT_REMOTE' ]; then
+          if [ -n '$IMPORT_LOCAL' -a -f '$IMPORT_MOUNT' ]; then
+            echo "Importing from $IMPORT_MOUNT into $$ARCHIVE_DIR..."
+            tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || exit 98
+          elif [[ '$IMPORT_REMOTE' = ?*://?* ]]; then
+            echo "Importing from $IMPORT_REMOTE into $$ARCHIVE_DIR..."
+            [ -n '$IMPORT_AUTH' -a '$IMPORT_AUTH' != ':' ] && curlAuth='--user $IMPORT_AUTH'
+            curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
+          fi
+          [ $$(find "$$ARCHIVE_DIR" -name 1.atm | wc -l) -gt 0 ] && echo "Imported data looks good..." || echo "Imported archive does not seem to contain valid data: $$(ls $$ARCHIVE_DIR)"
+          nuodocker restore archive --origin-dir "$$ARCHIVE_DIR" --restore-dir "$$ARCHIVE_DIR" --db-name "$DB_NAME" --clean-metadata || exit 99
         fi
-        nuodocker start sm --db-name "$DB_NAME" --server-id "$PEER_ADDRESS" --dba-user "$DB_USER" --dba-password "$DB_PASSWORD" --options "alt-address sm1" --database-options "$$DB_OPTIONS"
+        nuodocker start sm --db-name '$DB_NAME' --server-id '${PEER_ADDRESS:-nuoadmin1}' --dba-user '$DB_USER' --dba-password '$DB_PASSWORD' --options 'alt-address sm1' --database-options "$$DB_OPTIONS"
 
   te1:
     image: $NUODB_IMAGE
     environment:
       # push the current resolved value of the VAR
-      NUOCMD_API_SERVER:
+      NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
     hostname: te1
     depends_on:
@@ -79,7 +85,7 @@ services:
           sleepTime=$$(( sleepTime + sleepQuantum ))
           [ $$sleepQuantum -lt $$((STARTUP_TIMEOUT / 2)) ] && sleepQuantum=$$(( sleepQuantum + 30 ))
         done
-        nuodocker start te --db-name "$DB_NAME" --server-id "$PEER_ADDRESS" --options "alt-address ${EXTERNAL_ADDRESS:-te1}"
+        nuodocker start te --db-name '$DB_NAME' --server-id '${PEER_ADDRESS:-nuoadmin1}' --options 'alt-address ${EXTERNAL_ADDRESS:-te1}'
 
   # te2:
   #   image: $NUODB_IMAGE
@@ -93,7 +99,7 @@ services:
   #     - sm
   #   ports:
   #     - 48007:48006
-  #   command: [ "nuodocker", "start", "te", "--db-name", "$DB_NAME", "--server-id", "$PEER_ADDRESS", "--options", "alt-address ${EXTERNAL_ADDRESS:-te2}" ]
+  #   command: [ "nuodocker", "start", "te", "--db-name", "$DB_NAME", "--server-id", "${PEER_ADDRESS:-nuoadmin1}", "--options", "alt-address ${EXTERNAL_ADDRESS:-te2}" ]
 
   influxdb:
     image: influxdb:1.8
@@ -154,7 +160,7 @@ services:
   #   depends_on:
   #     - te1
   #   environment:
-  #     PEER_ADDRESS:
+  #     PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
   #     DB_NAME:
   #     DB_USER:
   #     DB_PASSWORD:

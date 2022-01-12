@@ -50,6 +50,9 @@ Note that the container names will have the `project` name embedded - which is t
 1. You can specify env vars on the command-line in linux or MacOS, by setting them _before_ the `docker-compose` command.
 - Ex: `$ IMPORT_SOURCE=./mydb.bak.tgz STARTUP_TIMEOUT=300 docker-compose up -d`
 
+2. the `docker-compose` command may suggest to you to use `docker compose` instead.
+Don't - it doesn't work.
+
 ## What could possibly go wrong?? ##
 
 1. If you get an error in the form:
@@ -63,4 +66,11 @@ Note that the container names will have the `project` name embedded - which is t
 - then you have most likely forgotten to copy the `env-default` file to `.env`;
 - or (less popular) create your own `.env` file from scratch.
 
-2. If an error causes only part of the database to be deployed, you can start the remaining containers - after fixing the error - by simply running `docker-compose up -d` again. The `up` command only starts those containers that are missing.
+2. If you get one or more warnings of the form:
+```
+    WARNING: The <xyz> variable is not set. Defaulting to a blank string.
+```
+  - but NO ERROR, then you probably need to update your `.env` file.
+  - Do a `diff` of `.env` vs `env-default`, and look for new VARs defined in the latest `env-default`.
+
+3. If an error causes only part of the database to be deployed, you can start the remaining containers - after fixing the error - by simply running `docker-compose up -d` again. The `up` command only starts those containers that are missing.
