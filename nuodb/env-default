@@ -27,6 +27,8 @@ IMPORT_LOCAL=
 
 # set IMPORT_REMOTE to the URL of a REMOTE tar file on a remote server - typically http(s) or sftp.
 # The SM container will download the file, extract (untar) it, and use the contents as the initial state of the database.
+# Ex: sftp://sftp.some.domain.com/backup-4-3.tz
+# Ex: https://some.server.io/archives/backup-4-3.tz
 IMPORT_REMOTE=
 
 # If IMPORT_REMOTE is set, and the remote server requires an authentication token which is NOT embedded in IMPORT_REMOTE,

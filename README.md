@@ -58,6 +58,9 @@ _*NOTE:*_ The `docker-compose` command may suggest to you to use `docker compose
   The SM container will mount this file as a volume and extract (`untar`) it into the
   archive dir prior to starting the SM process;
 - set `IMPORT_REMOTE` to a URL of a remote file hosted on a server - typically accessed through `http(s)` or `(s)ftp`.
+  - Ex: `https://some.server.io/backup-4-3.tz`
+  - Ex: `sftp://sftp.some.domain.com/backup-4-3.tz`
+  
   The SM container will download the file via the URL and extract it into
   the archive dir prior to starting the SM process.
 - if you set _both_ `IMPORT_LOCAL` _and_ `IMPORT_REMOTE`, then `IMPORT_REMOTE` is treated as the remote copy, and `IMPORT_LOCAL` is treated as a locally cached copy - hence the behaviour is as follows:
@@ -70,7 +73,7 @@ _*NOTE:*_ The `docker-compose` command may suggest to you to use `docker compose
     - `$ rm -rf a/b/c`
     - `$ touch a/b/c`
     
-    Now you can set `IMPORT_LOCAL` to be `a/b/c`.
+    Now you can set `IMPORT_REMOTE` as needed, and set `IMPORT_LOCAL` to `a/b/c`.
 
 ## What could possibly go wrong?? ##
 
@@ -106,5 +109,12 @@ host:/a/a/c is not a valid, non-empty file - import failed...
 ```
 then you have probably set `IMPORT_LOCAL` to point to a non-existent file, or to a directory.
 
-5. If an error causes only part of the database to be deployed, you can start the remaining containers - after fixing the error - by simply running `docker-compose up -d` again. The `up` command only starts those containers that are not currently running.
+5. If you get an error in the form:
+```
+IMPORT_REMOTE is not a valid URL: ... - import aborted
+```
+then you have not set `IMPORT_REMOTE` to a valid URL.
+A URL is in the form: <protocol>://<host>/<path>
+
+6. If an error causes only part of the database to be deployed, you can start the remaining containers - after fixing the error - by simply running `docker-compose up -d` again. The `up` command only starts those containers that are not currently running.
 

@@ -42,7 +42,8 @@ services:
         echo "ARCHIVE_DIR=$$ARCHIVE_DIR"
         if [ -n '$IMPORT_LOCAL$IMPORT_REMOTE' -a ! -f "$$ARCHIVE_DIR/1.atm" ]; then
           echo "Importing into empty archive..."
-          if [[ '$IMPORT_REMOTE' = ?*://?* && ! -s "$IMPORT_MOUNT" ]]; then
+          [[ -n '$IMPORT_REMOTE' && '$IMPORT_REMOTE' != ?*://?* ]] && echo "IMPORT_REMOTE is not a valid URL: $IMPORT_REMOTE - import aborted" && exit 98
+          if [ -n '$IMPORT_REMOTE' -a ! -s '$IMPORT_MOUNT' ]; then
             [ -n '$IMPORT_AUTH' -a '$IMPORT_AUTH' != ':' ] && curlAuth='--user $IMPORT_AUTH'
             if [ -n '$IMPORT_LOCAL' -a ! -d '$IMPORT_MOUNT' ]; then
               echo "Downloading $IMPORT_REMOTE into host:$IMPORT_LOCAL..."
@@ -54,11 +55,11 @@ services:
             fi
           fi
           if [ -n '$IMPORT_LOCAL' -a -s '$IMPORT_MOUNT' -a ! -d '$IMPORT_MOUNT' ]; then
-            [[ '$IMPORT_REMOTE' = ?*://?* ]] && echo "Using host:$IMPORT_LOCAL - assuming it is a cached copy of $IMPORT_REMOTE..."
+            [ -n '$IMPORT_REMOTE' ] && echo "Using host:$IMPORT_LOCAL - assuming it is a cached copy of $IMPORT_REMOTE..."
             echo "Importing from host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
             tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || exit 98
           elif [ -n '$IMPORT_LOCAL' ]; then
-            echo "host:$IMPORT_LOCAL is not a valid, non-empty file - import failed..."
+            echo "host:$IMPORT_LOCAL is not a valid, non-empty file - import aborted..."
             exit 98
           fi
           [ $$(find "$$ARCHIVE_DIR" -name 1.atm | wc -l) -gt 0 ] && echo "Imported data looks good..." || echo "Imported archive does not seem to contain valid data: $$(ls $$ARCHIVE_DIR)"

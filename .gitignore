@@ -1,5 +1,8 @@
 .vscode/settings.json
 
 nuodb/.env
+nuodb/*.tz
+nuodb/*.tgz
+nuodb/*.tar.gz
 .DS_Store
 nuodb/.DS_Store
