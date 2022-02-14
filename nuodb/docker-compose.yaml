@@ -39,6 +39,8 @@ services:
       - "sh"
       - "-c"
       - |
+        msg=$$(nuocmd check servers --timeout ${STARTUP_TIMEOUT:-60} --check-converged --check-active)
+        [ $$? -ne 0 ] && echo "SM timed out waiting for admin layer to be ready: $$msg" && exit 98
         echo "ARCHIVE_DIR=$$ARCHIVE_DIR"
         if [ -n '$IMPORT_LOCAL$IMPORT_REMOTE' -a ! -f "$$ARCHIVE_DIR/1.atm" ]; then
           echo "Importing into empty archive..."
