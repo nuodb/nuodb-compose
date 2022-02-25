@@ -47,25 +47,41 @@ services:
           [[ -n '$IMPORT_REMOTE' && '$IMPORT_REMOTE' != ?*://?* ]] && echo "IMPORT_REMOTE is not a valid URL: $IMPORT_REMOTE - import aborted" && exit 98
           if [ -n '$IMPORT_REMOTE' -a ! -s '$IMPORT_MOUNT' ]; then
             [ -n '$IMPORT_AUTH' -a '$IMPORT_AUTH' != ':' ] && curlAuth='--user $IMPORT_AUTH'
-            if [ -n '$IMPORT_LOCAL' -a ! -d '$IMPORT_MOUNT' ]; then
-              echo "Downloading $IMPORT_REMOTE into host:$IMPORT_LOCAL..."
-              curl -k $${curlAuth:-} '$IMPORT_REMOTE' > '$IMPORT_MOUNT' || exit 98
+            if [ -n '$IMPORT_LOCAL' ]; then
+              if [ ! -d '$IMPORT_MOUNT']; then
+                echo "Downloading $IMPORT_REMOTE into host:$IMPORT_LOCAL..."
+                curl -k $${curlAuth:-} '$IMPORT_REMOTE' > '$IMPORT_MOUNT' || exit 98
+              elif [ '$IMPORT_IS_BACKUP' = 'true' ]; then
+                echo "Downloading BACKUPSET in $IMPORT_REMOTE into directory host:$IMPORT_LOCAL..."
+                curl -k $${curlAuth:-} '$IMORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$IMPORT_MOUNT || exit 98
+              else
+                echo "$IMPORT_REMOTE is not a BACKUPSET and host:$IMPORT_LOCAL is not a file - caching ignored."
+                echo "Importing from $IMPORT_REMOTE into $$ARCHIVE_DIR..."
+                curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
+              fi
             else
-              [ -n "$IMPORT_LOCAL" -a -d "$IMPORT_MOUNT" ] && echo "host:$IMPORT_LOCAL is not a file - ignoring..."
+              echo "$IMPORT_LOCAL is not set - caching disabled."
               echo "Importing from $IMPORT_REMOTE into $$ARCHIVE_DIR..."
               curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
             fi
           fi
-          if [ -n '$IMPORT_LOCAL' -a -s '$IMPORT_MOUNT' -a ! -d '$IMPORT_MOUNT' ]; then
+          if [ -n '$IMPORT_LOCAL' -a -s '$IMPORT_MOUNT']; then
             [ -n '$IMPORT_REMOTE' ] && echo "Using host:$IMPORT_LOCAL - assuming it is a cached copy of $IMPORT_REMOTE..."
-            echo "Importing from host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
-            tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || exit 98
+            if [ -d '$IMPORT_MOUNT' ]; then
+              echo "Importing directory host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
+              nuodocker restore archive --origin-dir $IMPORT_MOUNT --restore-dir $$ARCHIVE_DIR --db-name "$DB_NAME" --clean-metadata || exit 98
+            else
+              echo "Importing file host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
+              tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || exit 98
+            fi
           elif [ -n '$IMPORT_LOCAL' ]; then
-            echo "host:$IMPORT_LOCAL is not a valid, non-empty file - import aborted..."
+            echo "host:$IMPORT_LOCAL is not a valid, non-empty file or directory - import aborted..."
             exit 98
           fi
           [ $$(find "$$ARCHIVE_DIR" -name 1.atm | wc -l) -gt 0 ] && echo "Imported data looks good..." || echo "Imported archive does not seem to contain valid data: $$(ls $$ARCHIVE_DIR)"
-          nuodocker restore archive --origin-dir "$$ARCHIVE_DIR" --restore-dir "$$ARCHIVE_DIR" --db-name "$DB_NAME" --clean-metadata || exit 99
+          if [ !  -d '$IMPORT_MOUNT' ]; then
+            nuodocker restore archive --origin-dir "$$ARCHIVE_DIR" --restore-dir "$$ARCHIVE_DIR" --db-name "$DB_NAME" --clean-metadata || exit 99
+          fi
         fi
         nuodocker start sm --db-name '$DB_NAME' --server-id '${PEER_ADDRESS:-nuoadmin1}' --dba-user '$DB_USER' --dba-password '$DB_PASSWORD' --options 'alt-address sm1' --database-options "$$DB_OPTIONS"
 

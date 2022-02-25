@@ -31,13 +31,16 @@ IMPORT_LOCAL=
 # Ex: https://some.server.io/archives/backup-4-3.tz
 IMPORT_REMOTE=
 
-# If IMPORT_REMOTE is set, and the remote server requires an authentication token which is NOT embedded in IMPORT_REMOTE,
+# If IMPORT_REMOTE is set, and the remote server requires an authentication token which is NOT embedded in the IMPORT_REMOTE URL,
 # then set IMPORT_AUTH, in the form user:password
 IMPORT_AUTH=
 
 # The person supplying the backup TAR file for IMPORT (either local or remote)
 # can advise on any non-standard value required for IMPORT_LEVEL.
 IMPORT_LEVEL=1
+
+# Set this to 'true' if the content to be imported is a backupset output from a hotcopy --full WITHOUT the --simple option.
+IMPORT_IS_BACKUPSET=false
 
 # This value is not normally changed.
 IMPORT_MOUNT=/var/opt/nuodb/import.tz
