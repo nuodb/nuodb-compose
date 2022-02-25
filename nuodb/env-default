@@ -43,7 +43,7 @@ IMPORT_LEVEL=1
 IMPORT_IS_BACKUPSET=false
 
 # This value is not normally changed.
-IMPORT_MOUNT=/var/opt/nuodb/import.tz
+IMPORT_MOUNT=/var/opt/nuodb/import
 
 # Uncomment to adjust AP naming, or adjust to different naming.
 # PEER_ADDRESS=nuoadmin1

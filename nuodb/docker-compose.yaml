@@ -72,7 +72,7 @@ services:
               nuodocker restore archive --origin-dir $IMPORT_MOUNT --restore-dir $$ARCHIVE_DIR --db-name "$DB_NAME" --clean-metadata || exit 98
             else
               echo "Importing file host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
-              tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || exit 98
+              tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || ls $IMPORT_MOUNT && exit 98
             fi
           elif [ -n '$IMPORT_LOCAL' ]; then
             echo "host:$IMPORT_LOCAL is not a valid, non-empty file or directory - import aborted..."
