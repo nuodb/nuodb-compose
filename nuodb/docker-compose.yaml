@@ -40,46 +40,74 @@ services:
       - "-c"
       - |
         msg=$$(nuocmd check servers --timeout ${STARTUP_TIMEOUT:-60} --check-converged --check-active)
-        [ $$? -ne 0 ] && echo "SM timed out waiting for admin layer to be ready: $$msg" && exit 98
+        [ $$? -ne 0 ] && echo "ERROR: SM timed out waiting for admin layer to be ready: $$msg" && exit 98
         echo "ARCHIVE_DIR=$$ARCHIVE_DIR"
-        if [ -n '$IMPORT_LOCAL$IMPORT_REMOTE' -a ! -f "$$ARCHIVE_DIR/1.atm" ]; then
+        nuocmd show archives --db-name $DB_NAME
+        runningArchives=$$(nuocmd get archives --db-name "$DB_NAME" | grep 'state=RUNNING' | wc -l)
+        notRunningArchives=$$(nuocmd get archives --db-name "DB_NAME" | grep -v "state=RUNNING" | wc -l)
+        myArchive=$$( nuocmd show archives --db-name $DB_NAME --archive-format "archive-id: {id}" | sed -En "/^archive-id: / {N; /$$HOSTNAME/ s/^archive-id: ([0-9]+).*$$/\1/; T; p}" | head -n 1 )
+        [ -z "$$myArchive" ] && myArchive=$$( nuocmd show archives --db-name $DB_NAME --removed --removed-archive-format "archive-id: {id}" | sed -En "/^archive-id: / {N; /$$HOSTNAME/ s/^archive-id: ([0-9]+).*$$/\1/; T; p}" | head -n 1 )
+        if [ -n "$$myArchive" -a $$notRunningArchives -gt 1 ] || [ -z "$$myArchive" -a $$notRunningArchives -gt 0 ]; then
+          echo "This database has $$notRunningArchives archives with no running SM."
+          echo "No new SMs can start while the database is in this state."
+          echo "To fix this, you can:"
+          echo "   1. start SMs running for some or all non-running archives;"
+          echo "   2. remove all remaining non-running archives with 'nuocmd delete archive (--purge)';"
+          echo "   3. or delete the entire database with 'compose down'."
+          echo "After fixing the issue(s) per above, you can run 'compose up' again."
+          exit 98
+        fi
+        if [ -n '$IMPORT_LOCAL$IMPORT_REMOTE' -a ! -f "$$ARCHIVE_DIR/1.atm" -a "$$runningArchives" -eq 0 ]; then
           echo "Importing into empty archive..."
-          [[ -n '$IMPORT_REMOTE' && '$IMPORT_REMOTE' != ?*://?* ]] && echo "IMPORT_REMOTE is not a valid URL: $IMPORT_REMOTE - import aborted" && exit 98
-          if [ -n '$IMPORT_REMOTE' -a ! -s '$IMPORT_MOUNT' ]; then
+          [[ -n '$IMPORT_REMOTE' && '$IMPORT_REMOTE' != ?*://?* ]] && echo "ERROR: IMPORT_REMOTE is not a valid URL: $IMPORT_REMOTE - import aborted" && exit 98
+          if [ -n "$$myArchive" ]; then
+            echo "Cleaning up archive tombstone for $$HOSTNAME: $$myArchive..."
+            [ $$(nuocmd get archives --db-name $DB_NAME | wc -l) -eq 1 ] && echo "Cleaning up database first..." && nuocmd delete database --db-name $DB_NAME 2>&1 || exit 98
+            nuocmd delete archive --archive-id $$myArchive --purge 2>&1 || exit 98
+          fi
+          importFromCache='false'
+          if [ -n '$IMPORT_REMOTE' ]; then
             [ -n '$IMPORT_AUTH' -a '$IMPORT_AUTH' != ':' ] && curlAuth='--user $IMPORT_AUTH'
             if [ -n '$IMPORT_LOCAL' ]; then
-              if [ ! -d '$IMPORT_MOUNT']; then
-                echo "Downloading $IMPORT_REMOTE into host:$IMPORT_LOCAL..."
-                curl -k $${curlAuth:-} '$IMPORT_REMOTE' > '$IMPORT_MOUNT' || exit 98
-              elif [ '$IMPORT_IS_BACKUPSET' = 'true' ]; then
-                echo "Downloading BACKUPSET in $IMPORT_REMOTE into directory host:$IMPORT_LOCAL..."
-                curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$IMPORT_MOUNT || exit 98
+              if [ -d '$IMPORT_MOUNT' -a $$(ls -1 '$IMPORT_MOUNT' | wc -l) -eq 0 ]; then
+                echo "Extracting and caching $IMPORT_REMOTE into directory host:$IMPORT_LOCAL..."
+                time curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $IMPORT_MOUNT || exit 98
+                importFromCache='true'
+              elif [ ! -s '$IMPORT_MOUNT' ]; then
+                echo "Caching $IMPORT_REMOTE into file host:$IMPORT_LOCAL..."
+                time curl -k $${curlAuth:-} '$IMPORT_REMOTE' > '$IMPORT_MOUNT' || exit 98
+                importFromCache='true'
               else
-                echo "$IMPORT_REMOTE is not a BACKUPSET and host:$IMPORT_LOCAL is not a file - caching ignored."
-                echo "Importing from $IMPORT_REMOTE into $$ARCHIVE_DIR..."
-                curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
+                echo "host:$IMPORT_LOCAL is not empty - assuming it contains a cached copy of $IMPORT_REMOTE."
+                importFromCache='true'
               fi
             else
-              echo "$IMPORT_LOCAL is not set - caching disabled."
+              echo "IMPORT_LOCAL is not set - caching disabled."
               echo "Importing from $IMPORT_REMOTE into $$ARCHIVE_DIR..."
-              curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
+              time curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
             fi
+          else
+            [ -f '$IMPORT_MOUNT' -a ! -s '$IMPORT_MOUNT' ] && echo "ERROR: IMPORT_LOCAL file host:$IMPORT_LOCAL is empty." && exit 98
+            [ -d '$IMPORT_MOUNT' -a $$(ls -1 '$IMPORT_MOUNT' | wc -l) -eq 0 ] && echo "ERROR: IMPORT_LOCAL directory host:$IMPORT_LOCAL is empty." && exit 98
+            importFromCache='true'
           fi
-          if [ -n '$IMPORT_LOCAL' -a -s '$IMPORT_MOUNT' ]; then
-            [ -n '$IMPORT_REMOTE' ] && echo "Using host:$IMPORT_LOCAL - assuming it is a cached copy of $IMPORT_REMOTE..."
+          if [ -n '$IMPORT_LOCAL' ]; then
+            [ -n '$IMPORT_REMOTE' -a "$$importFromCache" = 'true' -a -s '$IMPORT_MOUNT' ] && echo "Using host:$IMPORT_LOCAL as a cached copy of $IMPORT_REMOTE..."
             if [ -d '$IMPORT_MOUNT' ]; then
               echo "Importing directory host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
-              nuodocker restore archive --origin-dir $IMPORT_MOUNT --restore-dir $$ARCHIVE_DIR --db-name "$DB_NAME" --clean-metadata || exit 98
-            else
+              time nuodocker restore archive --origin-dir $IMPORT_MOUNT --restore-dir $$ARCHIVE_DIR --db-name "$DB_NAME" --clean-metadata || exit 98
+            elif [ "$$importFromCache" = 'true' -a -s '$IMPORT_MOUNT' ]; then
               echo "Importing file host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
-              tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || ls $IMPORT_MOUNT && exit 98
+              time tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || exit 98
+            else
+              echo "ERROR: IMPORT_LOCAL has been specified, but host:$IMPORT_LOCAL is not a valid import source - IMPORT_LOCAL must be a directory, an initially empty file, or a cached copy of IMPORT_REMOTE - import aborted..."
+              exit 98
             fi
-          elif [ -n '$IMPORT_LOCAL' ]; then
-            echo "host:$IMPORT_LOCAL is not a valid, non-empty file or directory - import aborted..."
-            exit 98
           fi
-          [ $$(find "$$ARCHIVE_DIR" -name 1.atm | wc -l) -gt 0 ] && echo "Imported data looks good..." || echo "Imported archive does not seem to contain valid data: $$(ls $$ARCHIVE_DIR)"
-          if [ !  -d '$IMPORT_MOUNT' ]; then
+          [ -d "$$ARCHIVE_DIR/full" ] && echo "ERROR: Imported data looks like a BACKUPSET (in which case IMPORT_LOCAL must be a DIRECTORY): $$(ls -l $$ARCHIVE_DIR | head -n 10)" && exit 98 
+          [ ! -f "$$ARCHIVE_DIR/1.atm" ] && echo "ERROR: Imported archive does not seem to contain valid data: $$(ls -l $$ARCHIVE_DIR | head -n 10)" && exit 98
+          echo "Imported data looks good: $$(ls -l $$ARCHIVE_DIR | head -n 5)"
+          if [ ! -d '$IMPORT_MOUNT' ]; then
             nuodocker restore archive --origin-dir "$$ARCHIVE_DIR" --restore-dir "$$ARCHIVE_DIR" --db-name "$DB_NAME" --clean-metadata || exit 99
           fi
         fi
@@ -105,13 +133,13 @@ services:
       - "-c"
       - |
         sleepTime=0
-        sleepQuantum=30
-        while [ -z "$$(nuocmd get database --db-name $DB_NAME)" -o $$? -ne 0 ] ; do
+        sleepQuantum=10
+        while [ -z "$$(nuocmd get processes --db-name $DB_NAME | grep 'state=RUNNING')" -o $$? -ne 0 ] ; do
           if [ $$sleepTime -ge $$STARTUP_TIMEOUT ]; then
             echo "Timed out waiting for database startup ($$sleepTime sec)..."
             exit 97
           fi
-          echo "Waiting for confirmation that database $DB_NAME exists..."
+          echo "Waiting for confirmation that database $DB_NAME is started..."
           sleep $$sleepQuantum
           sleepTime=$$(( sleepTime + sleepQuantum ))
           [ $$sleepQuantum -lt $$((STARTUP_TIMEOUT / 2)) ] && sleepQuantum=$$(( sleepQuantum + 30 ))
