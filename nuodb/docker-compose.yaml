@@ -42,6 +42,8 @@ services:
         msg=$$(nuocmd check servers --timeout ${STARTUP_TIMEOUT:-60} --check-converged --check-active)
         [ $$? -ne 0 ] && echo "ERROR: SM timed out waiting for admin layer to be ready: $$msg" && exit 98
         echo "ARCHIVE_DIR=$$ARCHIVE_DIR"
+        mkdir -p $$ARCHIVE_DIR
+        [ $$? -ne 0 ] && echo "Error creating $$ARCHIVE_DIR: $$?" && exit 98
         nuocmd show archives --db-name $DB_NAME
         runningArchives=$$(nuocmd get archives --db-name "$DB_NAME" | grep 'state=RUNNING' | wc -l)
         notRunningArchives=$$(nuocmd get archives --db-name "DB_NAME" | grep -v "state=RUNNING" | wc -l)
@@ -111,12 +113,12 @@ services:
             nuodocker restore archive --origin-dir "$$ARCHIVE_DIR" --restore-dir "$$ARCHIVE_DIR" --db-name "$DB_NAME" --clean-metadata || exit 99
           fi
         fi
-        nuodocker start sm --db-name '$DB_NAME' --server-id '${PEER_ADDRESS:-nuoadmin1}' --dba-user '$DB_USER' --dba-password '$DB_PASSWORD' --options 'alt-address sm1' --database-options "$$DB_OPTIONS"
+        nuodocker start sm --db-name '$DB_NAME' --server-id '${PEER_ADDRESS:-nuoadmin1}' --archive-dir $$ARCHIVE_DIR --dba-user '$DB_USER' --dba-password '$DB_PASSWORD' --options 'alt-address sm1' --database-options "$$DB_OPTIONS"
 
   te1:
     image: $NUODB_IMAGE
     environment:
-      # push the current resolved value of the VAR
+      # push the current resolved value of the VARs
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
     hostname: te1
@@ -149,8 +151,9 @@ services:
   # te2:
   #   image: $NUODB_IMAGE
   #   environment:
-  #     # push the current resolved value of the VAR
-  #     NUOCMD_API_SERVER:
+  #     # push the current resolved value of the VARs
+  #     NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
+  #     STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
   #   hostname: te2
   #   scale: 0
   #   depends_on:
@@ -158,7 +161,26 @@ services:
   #     - sm
   #   ports:
   #     - 48007:48006
-  #   command: [ "nuodocker", "start", "te", "--db-name", "$DB_NAME", "--server-id", "${PEER_ADDRESS:-nuoadmin1}", "--options", "alt-address ${EXTERNAL_ADDRESS:-te2}" ]
+  #
+  #   ## NOTE: use '$$' for any variable that is to be evaluated at runtime IN THE SHELL.
+  #   # Any variable with a single '$' is resolved by docker-compose and written literally into the command string.
+  #   command:
+  #     - "sh"
+  #     - "-c"
+  #     - |
+  #       sleepTime=0
+  #       sleepQuantum=10
+  #       while [ -z "$$(nuocmd get processes --db-name $DB_NAME | grep 'state=RUNNING')" -o $$? -ne 0 ] ; do
+  #         if [ $$sleepTime -ge $$STARTUP_TIMEOUT ]; then
+  #           echo "Timed out waiting for database startup ($$sleepTime sec)..."
+  #           exit 97
+  #         fi
+  #         echo "Waiting for confirmation that database $DB_NAME is started..."
+  #         sleep $$sleepQuantum
+  #         sleepTime=$$(( sleepTime + sleepQuantum ))
+  #         [ $$sleepQuantum -lt $$((STARTUP_TIMEOUT / 2)) ] && sleepQuantum=$$(( sleepQuantum + 30 ))
+  #       done
+  #       nuodocker start te --db-name '$DB_NAME' --server-id '${PEER_ADDRESS:-nuoadmin1}' --options 'alt-address ${EXTERNAL_ADDRESS:-te2}'
 
   influxdb:
     image: influxdb:1.8
@@ -219,8 +241,9 @@ services:
   #   depends_on:
   #     - te1
   #   environment:
-  #     PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
+  #     # a VAR with no value pushes the currently resolved value of that VAR
   #     DB_NAME:
   #     DB_USER:
   #     DB_PASSWORD:
+  #     PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
   #   command: ["/driver/startup.sh"]
