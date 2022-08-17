@@ -23,7 +23,7 @@ services:
   sm:
     image: $NUODB_IMAGE
     environment:
-      # push the current resolved value of the VAR
+      # push the current resolved value of the VAR...
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
@@ -199,7 +199,7 @@ services:
       - influxdb
     environment:
       INFLUXURL: http://influxdb:8086
-      NUOCD_HOSTNAME: sm1
+      NUOCD_HOSTNAME: sm
     pid: 'service:sm'
 
   nuocd-te1:
