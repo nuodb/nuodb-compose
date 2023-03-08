@@ -1,11 +1,15 @@
 #!/bin/sh
-
+#
 # Start an SM
-set -a
+: ${LOGDIR:=/var/log/nuodb}
 PATH=$PATH:/usr/local/scripts
 
 # do not proceed if the admin layer has failed to become ready
-waitfor-nuoadmin || exit $?
+msg=$(nuocmd check servers --timeout ${STARTUP_TIMEOUT} --check-converged --check-active)
+if [ $? -ne 0 ]; then
+    echo "ERROR: Timed out waiting for admin layer to be ready: $msg"
+    exit 98
+fi
 
 # shutdown and delete any zombie engine processes (TE or SM)
 nuocmd shutdown server-processes --server-id "${PEER_ADDRESS}" --db-name "$DB_NAME" --evict
@@ -33,6 +37,8 @@ if [ -n "$myArchive" -a $notRunningArchives -gt 1 ] || [ -z "$myArchive" -a $not
     exit 98
 fi
 
+export myArchive runningArchives notRunningArchives
+
 # import archive content, if specified
 import-archive || exit $?
 
@@ -42,5 +48,6 @@ nuodocker start sm \
     --server-id "${PEER_ADDRESS}" \
     --dba-user "$DB_USER" \
     --dba-password "$DB_PASSWORD" \
-    --database-options "$DB_OPTIONS"
+    --database-options "$DB_OPTIONS" \
+    2>&1 > $LOGDIR/SM.log
 

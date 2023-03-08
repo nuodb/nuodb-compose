@@ -1,6 +1,0 @@
-#!/bin/sh
-
-# wait for the admin layer to become active
-msg=$(nuocmd check servers --timeout ${STARTUP_TIMEOUT} --check-converged --check-active)
-[ $? -ne 0 ] && echo "ERROR: Timed out waiting for admin layer to be ready: $msg" && exit 98
-exit 0

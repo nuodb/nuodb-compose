@@ -1,0 +1,44 @@
+#!/bin/sh
+
+# Start all 3 processes needed for a database in this (single) container.
+
+PATH=$PATH:/usr/local/scripts
+
+# start a background nuoadmin process
+start-nuoadmin &
+
+# start a background nuosm process
+start-nuosm &
+
+# start a background nuote process
+start-nuote &
+
+echo "Waiting for DB $DB_NAME to become RUNNING..."
+nuocmd check database --db-name $DB_NAME --check-running --wait-for-acks --timeout "${STARTUP_TIMEOUT}"
+if [ $? = 0 ]; then
+    echo "Database is RUNNING..."
+else
+    echo "Database check timed out after $STARTUP_TIMEOUT sec"
+
+    echo "$(nuocmd show database --db-name "$DB_NAME" --all-incarnations)"
+
+    if [ -n "$NUODB_DEBUG" ]; then
+        echo "SM logs"
+        cat /var/log/nuodb/SM.log
+
+        echo
+        echo "TE logs"
+        cat /var/log/nuodb/TE.log
+
+        echo
+        echo "AP logs"
+        cat /var/log/nuodb/AP.log
+    fi
+fi
+
+echo "$(nuocmd show domain)"
+
+# wait for all child processes to stop
+wait
+
+echo "Database $DB_NAME has been stopped. Exiting."

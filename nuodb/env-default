@@ -9,6 +9,7 @@ DB_USER=dba
 DB_PASSWORD=dba
 ENGINE_MEM=1Gi
 SQL_ENGINE=vee
+LOGDIR=/var/log/nuodb
 
 # docker compose restart policy.
 # set to one of:

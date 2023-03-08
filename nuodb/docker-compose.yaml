@@ -2,7 +2,7 @@ version: '3'
 services:
   nuoadmin1:
     image: $NUODB_IMAGE
-    profiles: [ "distributed" ]
+    # profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     # Do NOT remove this env_file value!!
@@ -16,18 +16,19 @@ services:
       - 8888:8888
     volumes:
       - ./scripts/start-nuoadmin:/usr/local/scripts/start-nuoadmin
+      - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
+    
     command: [ "/usr/local/scripts/start-nuoadmin" ]
 
   sm:
     image: $NUODB_IMAGE
-    profiles: [ "distributed" ]
+    # profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     # Do NOT remove this env_file value!!
     env_file: .env
 
     environment:
-      # push the current resolved value of the VAR
       PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
@@ -38,6 +39,7 @@ services:
       - nuoadmin1
     volumes:
       - ./scripts:/usr/local/scripts
+      - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
       - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}
 
     command: [ "/usr/local/scripts/start-nuosm" ]
@@ -45,7 +47,7 @@ services:
 
   te1:
     image: $NUODB_IMAGE
-    profiles: [ "distributed" ]
+    # profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     # Do NOT remove this env_file value!!
@@ -64,6 +66,7 @@ services:
       - 48006:48006
     volumes:
       - ./scripts/start-nuote:/usr/local/scripts/start-nuote
+      - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
 
     command: [ "/usr/local/scripts/start-nuote" ]
 
@@ -91,9 +94,9 @@ services:
     
     command: [ "/usr/local/scripts/start-nuote" ]
 
-  db:
+  monolith:
     image: $NUODB_IMAGE
-    profiles: [ "all-in-one" ]
+    profiles: [ "monolith" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     # Do NOT remove this env_file value!!
@@ -113,9 +116,10 @@ services:
       - 8888:8888
     volumes:
       - ./scripts:/usr/local/scripts
+      - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
       - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}  
 
-    command: [ "/usr/local/scripts/start-db" ]  
+    command: [ "/usr/local/scripts/start-monolith" ]  
 
   influxdb:
     image: influxdb:1.8

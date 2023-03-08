@@ -1,0 +1,27 @@
+#!/bin/sh
+
+case "$1" in
+    "--help")
+        echo "Shutdown the $DB_NAME database."
+        echo "Add the '+domain' flag to shut down the nuoadmin AP as well."
+        exit 0
+        ;;
+
+    "+domain")
+        echo "Shutting down Domain as well as database."
+        SHUTDOWN_DOMAIN="true"
+        shift
+        ;;
+
+    *)
+        DBNAME=$1
+        shift
+        ;;
+esac
+
+
+# gracefully shutdown monolith database
+echo "Shutting down DB $DB_NAME..."
+nuocmd shutdown database --db-name $DB_NAME || exit $?
+
+[ -n "$SHUTDOWN_DOMAIN" ] && nuocmd shutdown server --server-id "$PEER_ADDRESS" || exit $?
