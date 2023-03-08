@@ -190,7 +190,7 @@ services:
 
   nuocd-te2:
     image: nuodb/nuodb-collector:latest
-    profiles: [ "insights", "add-te2" ]
+    profiles: [ "scale-te2" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     networks:
