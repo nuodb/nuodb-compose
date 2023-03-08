@@ -1,9 +1,17 @@
 version: '3'
+
+networks:
+  net:
+
 services:
   nuoadmin1:
     image: $NUODB_IMAGE
+
     # profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
+    networks:
+      net:
 
     # Do NOT remove this env_file value!!
     env_file: .env
@@ -25,6 +33,9 @@ services:
     # profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
+    networks:
+      net:
+
     # Do NOT remove this env_file value!!
     env_file: .env
 
@@ -44,11 +55,13 @@ services:
 
     command: [ "/usr/local/scripts/start-nuosm" ]
 
-
   te1:
     image: $NUODB_IMAGE
     # profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
+    networks:
+      net:
 
     # Do NOT remove this env_file value!!
     env_file: .env
@@ -75,6 +88,9 @@ services:
     profiles: [ "scale-te2" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
+    networks:
+      net:
+
     # Do NOT remove this env_file value!!
     env_file: .env
 
@@ -98,6 +114,8 @@ services:
     image: $NUODB_IMAGE
     profiles: [ "monolith" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      net:
 
     # Do NOT remove this env_file value!!
     env_file: .env
@@ -110,7 +128,7 @@ services:
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-localhost}
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
-    hostname: db
+    hostname: ${PEER_ADDRESS:-db}
     ports:
       - 48004-48007:48004-48007
       - 8888:8888
@@ -126,6 +144,9 @@ services:
     profiles: [ "insights" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
+    networks:
+      net:    
+
     # ports:
       # The API for InfluxDB is served on port 8086
       # - "8086:8086"
@@ -137,6 +158,9 @@ services:
     image: nuodb/nuodb-collector:latest
     profiles: [ "insights" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
+    networks:
+      net:
 
     depends_on:
       - nuoadmin1
@@ -152,6 +176,9 @@ services:
     profiles: [ "insights" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
+    networks:
+      net:
+
     depends_on:
       - nuoadmin1
       - te1
@@ -165,6 +192,9 @@ services:
     image: nuodb/nuodb-collector:latest
     profiles: [ "insights", "add-te2" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
+    networks:
+      net:
 
     depends_on:
       - nuoadmin1
@@ -180,6 +210,9 @@ services:
     profiles: [ "insights" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
+    networks:
+      net:
+
     depends_on:
       - influxdb
     environment:
@@ -191,6 +224,8 @@ services:
 
   # ycsb-demo:
   #   image: nuodb/ycsb:latest
+  #   networks:
+  #     net:
   #   depends_on:
   #     - te1
   #   environment:
