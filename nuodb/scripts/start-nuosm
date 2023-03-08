@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Start an SM
-
+set -a
 PATH=$PATH:/usr/local/scripts
 
 # do not proceed if the admin layer has failed to become ready
@@ -12,6 +12,7 @@ nuocmd shutdown server-processes --server-id "${PEER_ADDRESS}" --db-name "$DB_NA
 
 # set up the archive dir
 echo "ARCHIVE_DIR=$ARCHIVE_DIR"
+
 mkdir -p $ARCHIVE_DIR
 [ $? -ne 0 ] && echo "Error creating $ARCHIVE_DIR: $?" && exit 98
 
@@ -37,9 +38,9 @@ import-archive || exit $?
 
 # start the SM
 nuodocker start sm \
-    --db-name '$DB_NAME' \
-    --server-id '${PEER_ADDRESS}' \
-    --dba-user '$DB_USER' \
-    --dba-password '$DB_PASSWORD' \
-    --options 'alt-address sm1' \
+    --db-name "$DB_NAME" \
+    --server-id "${PEER_ADDRESS}" \
+    --dba-user "$DB_USER" \
+    --dba-password "$DB_PASSWORD" \
     --database-options "$DB_OPTIONS"
+

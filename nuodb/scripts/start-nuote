@@ -17,6 +17,6 @@ while [ -z "$(nuocmd get processes --db-name $DB_NAME | grep 'state=RUNNING')" -
 done
 
 nuodocker start te \
-    --db-name '$DB_NAME' \
-    --server-id '${PEER_ADDRESS}' \
-    --options 'alt-address ${EXTERNAL_ADDRESS}'
+    --db-name "$DB_NAME" \
+    --server-id "${PEER_ADDRESS}" \
+    --options "alt-address ${EXTERNAL_ADDRESS}"

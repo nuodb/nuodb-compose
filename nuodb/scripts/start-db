@@ -11,4 +11,4 @@ start-nuoadmin &
 start-nuosm &
 
 # start a background nuote process
-start-nuote &
+start-nuote

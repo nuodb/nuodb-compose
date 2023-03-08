@@ -2,6 +2,7 @@ version: '3'
 services:
   nuoadmin1:
     image: $NUODB_IMAGE
+    profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     # Do NOT remove this env_file value!!
@@ -14,17 +15,24 @@ services:
       - 48004-48005:48004-48005
       - 8888:8888
     volumes:
-      ./scripts/start-nuoadmin:/usr/local/scripts/start-nuoadmin
+      - ./scripts/start-nuoadmin:/usr/local/scripts/start-nuoadmin
     command: [ "/usr/local/scripts/start-nuoadmin" ]
 
   sm:
     image: $NUODB_IMAGE
+    profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
+    # Do NOT remove this env_file value!!
+    env_file: .env
+
     environment:
       # push the current resolved value of the VAR
+      PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
+      STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}      
     hostname: sm1
     depends_on:
       - nuoadmin1
@@ -37,8 +45,14 @@ services:
 
   te1:
     image: $NUODB_IMAGE
+    profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
+    # Do NOT remove this env_file value!!
+    env_file: .env
+
     environment:
+      PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te1}
@@ -57,7 +71,12 @@ services:
     image: $NUODB_IMAGE
     profiles: [ "scale-te2" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
+    # Do NOT remove this env_file value!!
+    env_file: .env
+
     environment:
+      PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te2}
@@ -76,16 +95,25 @@ services:
     image: $NUODB_IMAGE
     profiles: [ "all-in-one" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
+    # Do NOT remove this env_file value!!
+    env_file: .env
+
     environment:
+      PEER_ADDRESS: ${PEER_ADDRESS:-db}
+      NUODB_DOMAIN_ENTRYPOINT: ${PEER_ADDRESS:-db}
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-db}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
-      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-db}
+      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-localhost}
+      ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
+      DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
     hostname: db
     ports:
       - 48004-48007:48004-48007
       - 8888:8888
     volumes:
-      - ./scripts:/usr/local/scripts      
+      - ./scripts:/usr/local/scripts
+      - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}  
 
     command: [ "/usr/local/scripts/start-db" ]  
 
@@ -93,6 +121,7 @@ services:
     image: influxdb:1.8
     profiles: [ "insights" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
     # ports:
       # The API for InfluxDB is served on port 8086
       # - "8086:8086"
@@ -104,6 +133,7 @@ services:
     image: nuodb/nuodb-collector:latest
     profiles: [ "insights" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
     depends_on:
       - nuoadmin1
       - sm
@@ -117,6 +147,7 @@ services:
     image: nuodb/nuodb-collector:latest
     profiles: [ "insights" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
     depends_on:
       - nuoadmin1
       - te1
@@ -130,6 +161,7 @@ services:
     image: nuodb/nuodb-collector:latest
     profiles: [ "insights", "add-te2" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
     depends_on:
       - nuoadmin1
       - te2
@@ -143,6 +175,7 @@ services:
     image: grafana/grafana:7.5.4
     profiles: [ "insights" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
     depends_on:
       - influxdb
     environment:
