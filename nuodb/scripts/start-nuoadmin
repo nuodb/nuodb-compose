@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+#  Start a nuoadmin AP process
+nuoadmin -- \
+    pendingProcessTimeout=${STARTUP_TIMEOUT}000 \
+    pendingReconnectTimeout=90000 \
+    thrift.message.max=1073741824 \
+    processLivenessCheckSec=30
+    

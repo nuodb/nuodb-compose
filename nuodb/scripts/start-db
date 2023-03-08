@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Start all 3 processes needed for a database in this (single) container.
+
+PATH=$PATH:/usr/local/scripts
+
+# start a background nuoadmin process
+start-nuoadmin &
+
+# start a background nuosm process
+start-nuosm &
+
+# start a background nuote process
+start-nuote &

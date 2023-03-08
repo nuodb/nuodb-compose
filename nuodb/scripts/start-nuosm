@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# Start an SM
+
+PATH=$PATH:/usr/local/scripts
+
+# do not proceed if the admin layer has failed to become ready
+waitfor-nuoadmin || exit $?
+
+# shutdown and delete any zombie engine processes (TE or SM)
+nuocmd shutdown server-processes --server-id "${PEER_ADDRESS}" --db-name "$DB_NAME" --evict
+
+# set up the archive dir
+echo "ARCHIVE_DIR=$ARCHIVE_DIR"
+mkdir -p $ARCHIVE_DIR
+[ $? -ne 0 ] && echo "Error creating $ARCHIVE_DIR: $?" && exit 98
+
+# check for stranded archive definitions - eg from a previous failed startup
+nuocmd show archives --db-name $DB_NAME
+runningArchives=$(nuocmd get archives --db-name "$DB_NAME" | grep 'state=RUNNING' | wc -l)
+notRunningArchives=$(nuocmd get archives --db-name "DB_NAME" | grep -v "state=RUNNING" | wc -l)
+myArchive=$( nuocmd show archives --db-name $DB_NAME --archive-format "archive-id: {id}" | sed -En "/^archive-id: / {N; /$HOSTNAME/ s/^archive-id: ([0-9]+).*$/\1/; T; p}" | head -n 1 )
+[ -z "$myArchive" ] && myArchive=$( nuocmd show archives --db-name $DB_NAME --removed --removed-archive-format "archive-id: {id}" | sed -En "/^archive-id: / {N; /$HOSTNAME/ s/^archive-id: ([0-9]+).*$/\1/; T; p}" | head -n 1 )
+if [ -n "$myArchive" -a $notRunningArchives -gt 1 ] || [ -z "$myArchive" -a $notRunningArchives -gt 0 ]; then
+    echo "This database has $notRunningArchives archives with no running SM."
+    echo "No new SMs can start while the database is in this state."
+    echo "To fix this, you can:"
+    echo "   1. start SMs running for some or all non-running archives;"
+    echo "   2. remove all remaining non-running archives with 'nuocmd delete archive (--purge)';"
+    echo "   3. or delete the entire database with 'compose down'."
+    echo "After fixing the issue(s) per above, you can run 'compose up' again."
+    exit 98
+fi
+
+# import archive content, if specified
+import-archive || exit $?
+
+# start the SM
+nuodocker start sm \
+    --db-name '$DB_NAME' \
+    --server-id '${PEER_ADDRESS}' \
+    --dba-user '$DB_USER' \
+    --dba-password '$DB_PASSWORD' \
+    --options 'alt-address sm1' \
+    --database-options "$DB_OPTIONS"

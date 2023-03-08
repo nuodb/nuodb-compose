@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# start a nuote
+
+sleepTime=0
+sleepQuantum=5
+while [ -z "$(nuocmd get processes --db-name $DB_NAME | grep 'state=RUNNING')" -o $? -ne 0 ] ; do
+    if [ $sleepTime -ge $STARTUP_TIMEOUT ]; then
+        echo "Timed out waiting for database startup ($sleepTime sec)..."
+        exit 97
+    fi
+
+    echo "Waiting for confirmation that database $DB_NAME is started..."
+    sleep $sleepQuantum
+    sleepTime=$(( sleepTime + sleepQuantum ))
+    [ $sleepTime -gt 30 -a $sleepQuantum -lt $((STARTUP_TIMEOUT / 2)) ] && sleepQuantum=$(( sleepQuantum + 30 ))
+done
+
+nuodocker start te \
+    --db-name '$DB_NAME' \
+    --server-id '${PEER_ADDRESS}' \
+    --options 'alt-address ${EXTERNAL_ADDRESS}'

@@ -1,0 +1,81 @@
+#!/bin/sh
+
+# import the contents of the database archive
+
+: ${IMPORT_LEVEL:=1}
+
+# If archive IMPORT has been defined, and there is no existing archive, then perform the import
+if [ -n '$IMPORT_LOCAL$IMPORT_REMOTE' -a ! -f "$ARCHIVE_DIR/1.atm" -a "$runningArchives" -eq 0 ]; then
+    echo "Importing into empty archive..."
+    [[ -n '$IMPORT_REMOTE' && '$IMPORT_REMOTE' != ?*://?* ]] && echo "ERROR: IMPORT_REMOTE is not a valid URL: $IMPORT_REMOTE - import aborted" && exit 98
+
+    # clean up any tombstone of the archive for this SM
+    if [ -n "$myArchive" ]; then
+        echo "Cleaning up archive tombstone for $HOSTNAME: $myArchive..."
+        [ $(nuocmd get archives --db-name $DB_NAME | wc -l) -eq 1 ] && echo "Cleaning up database first..." && nuocmd delete database --db-name $DB_NAME 2>&1 || exit 98
+        nuocmd delete archive --archive-id $myArchive --purge 2>&1 || exit 98
+    fi
+
+    # if IMPORT_REMOTE is set - work out whether to import from existing (IMPORT_LOCAL) cache
+    importFromCache='false'
+    if [ -n '$IMPORT_REMOTE' ]; then
+        [ -n '$IMPORT_AUTH' -a '$IMPORT_AUTH' != ':' ] && curlAuth='--user $IMPORT_AUTH'
+        if [ -n '$IMPORT_LOCAL' ]; then
+
+            # IMPORT_LOCAL is an empty dir
+            if [ -d '$IMPORT_MOUNT' -a $(ls -1 '$IMPORT_MOUNT' | wc -l) -eq 0 ]; then
+                echo "Extracting and caching $IMPORT_REMOTE into directory host:$IMPORT_LOCAL..."
+                time curl -k ${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL} -C $IMPORT_MOUNT || exit 98
+                importFromCache='true'
+
+            # IMPORT_LOCAL is an empty file
+            elif [ ! -s '$IMPORT_MOUNT' ]; then
+                echo "Caching $IMPORT_REMOTE into file host:$IMPORT_LOCAL..."
+                time curl -k ${curlAuth:-} '$IMPORT_REMOTE' > '$IMPORT_MOUNT' || exit 98
+                importFromCache='true'
+
+            # IMPORT_LOCAL is not empty - assume it is a valid cache
+            else
+                echo "host:$IMPORT_LOCAL is not empty - assuming it contains a cached copy of $IMPORT_REMOTE."
+                importFromCache='true'
+            fi
+
+        # IMPORT_LOCAL is not set - so there is no local cache
+        else
+            echo "IMPORT_LOCAL is not set - caching disabled."
+            echo "Importing from $IMPORT_REMOTE into $ARCHIVE_DIR..."
+            time curl -k ${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL} -C $ARCHIVE_DIR || exit 98
+        fi
+
+    # IMPORT_REMOTE is not set, so check that IMPORT_LOCAL is not empty
+    else
+        [ -f '$IMPORT_MOUNT' -a ! -s '$IMPORT_MOUNT' ] && echo "ERROR: IMPORT_LOCAL file host:$IMPORT_LOCAL is empty." && exit 98
+        [ -d '$IMPORT_MOUNT' -a $(ls -1 '$IMPORT_MOUNT' | wc -l) -eq 0 ] && echo "ERROR: IMPORT_LOCAL directory host:$IMPORT_LOCAL is empty." && exit 98
+        importFromCache='true'
+    fi
+
+    # IMPORT_LOCAL should now have the correct content - import it into the archive
+    if [ -n '$IMPORT_LOCAL' ]; then
+        [ -n '$IMPORT_REMOTE' -a "$importFromCache" = 'true' -a -s '$IMPORT_MOUNT' ] && echo "Using host:$IMPORT_LOCAL as a cached copy of $IMPORT_REMOTE..."
+        if [ -d '$IMPORT_MOUNT' ]; then
+            echo "Importing directory host:$IMPORT_LOCAL into $ARCHIVE_DIR..."
+            time nuodocker restore archive --origin-dir $IMPORT_MOUNT --restore-dir $ARCHIVE_DIR --db-name "$DB_NAME" --clean-metadata || exit 98
+        elif [ "$importFromCache" = 'true' -a -s '$IMPORT_MOUNT' ]; then
+            echo "Importing file host:$IMPORT_LOCAL into $ARCHIVE_DIR..."
+            time tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL} -C "$ARCHIVE_DIR" || exit 98
+        else
+            echo "ERROR: IMPORT_LOCAL has been specified, but host:$IMPORT_LOCAL is not a valid import source - IMPORT_LOCAL must be a directory, an initially empty file, or a cached copy of IMPORT_REMOTE - import aborted..."
+            exit 98
+        fi
+    fi
+
+    # sanity check the imported content in the archive
+    [ -d "$ARCHIVE_DIR/full" ] && echo "ERROR: Imported data looks like a BACKUPSET (in which case IMPORT_LOCAL must be a DIRECTORY): $(ls -l $ARCHIVE_DIR | head -n 10)" && exit 98 
+    [ ! -f "$ARCHIVE_DIR/1.atm" ] && echo "ERROR: Imported archive does not seem to contain valid data: $(ls -l $ARCHIVE_DIR | head -n 10)" && exit 98
+    echo "Imported data looks good: $(ls -l $ARCHIVE_DIR | head -n 5)"
+
+    # if the archive was not imported from a dir, then clean the meta-data in the archive
+    if [ ! -d '$IMPORT_MOUNT' ]; then
+        nuodocker restore archive --origin-dir "$ARCHIVE_DIR" --restore-dir "$ARCHIVE_DIR" --db-name "$DB_NAME" --clean-metadata || exit 99
+    fi
+fi

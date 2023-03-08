@@ -2,6 +2,7 @@ version: '3'
 services:
   nuoadmin1:
     image: $NUODB_IMAGE
+    restart: ${RESTART_POLICY:-unless-stopped}
 
     # Do NOT remove this env_file value!!
     env_file: .env
@@ -12,18 +13,15 @@ services:
     ports:
       - 48004-48005:48004-48005
       - 8888:8888
-    command:
-    - "nuoadmin"
-    - "--"
-    - "pendingProcessTimeout=${STARTUP_TIMEOUT:-60}000"
-    - "pendingReconnectTimeout=90000"
-    - "thrift.message.max=1073741824"
-    - "processLivenessCheckSec=30"
+    volumes:
+      ./scripts/start-nuoadmin:/usr/local/scripts/start-nuoadmin
+    command: [ "/usr/local/scripts/start-nuoadmin" ]
 
   sm:
     image: $NUODB_IMAGE
+    restart: ${RESTART_POLICY:-unless-stopped}
     environment:
-      # push the current resolved value of the VAR...
+      # push the current resolved value of the VAR
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
@@ -31,159 +29,70 @@ services:
     depends_on:
       - nuoadmin1
     volumes:
+      - ./scripts:/usr/local/scripts
       - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}
 
-    ## NOTE: use '$$' for any variable that is to be evaluated at runtime IN THE SHELL.
-    # Any variable with a single '$' is resolved by docker-compose and written literally into the command string.
-    command:
-      - "sh"
-      - "-c"
-      - |
-        msg=$$(nuocmd check servers --timeout ${STARTUP_TIMEOUT:-60} --check-converged --check-active)
-        [ $$? -ne 0 ] && echo "ERROR: SM timed out waiting for admin layer to be ready: $$msg" && exit 98
-        echo "ARCHIVE_DIR=$$ARCHIVE_DIR"
-        mkdir -p $$ARCHIVE_DIR
-        [ $$? -ne 0 ] && echo "Error creating $$ARCHIVE_DIR: $$?" && exit 98
-        nuocmd show archives --db-name $DB_NAME
-        runningArchives=$$(nuocmd get archives --db-name "$DB_NAME" | grep 'state=RUNNING' | wc -l)
-        notRunningArchives=$$(nuocmd get archives --db-name "DB_NAME" | grep -v "state=RUNNING" | wc -l)
-        myArchive=$$( nuocmd show archives --db-name $DB_NAME --archive-format "archive-id: {id}" | sed -En "/^archive-id: / {N; /$$HOSTNAME/ s/^archive-id: ([0-9]+).*$$/\1/; T; p}" | head -n 1 )
-        [ -z "$$myArchive" ] && myArchive=$$( nuocmd show archives --db-name $DB_NAME --removed --removed-archive-format "archive-id: {id}" | sed -En "/^archive-id: / {N; /$$HOSTNAME/ s/^archive-id: ([0-9]+).*$$/\1/; T; p}" | head -n 1 )
-        if [ -n "$$myArchive" -a $$notRunningArchives -gt 1 ] || [ -z "$$myArchive" -a $$notRunningArchives -gt 0 ]; then
-          echo "This database has $$notRunningArchives archives with no running SM."
-          echo "No new SMs can start while the database is in this state."
-          echo "To fix this, you can:"
-          echo "   1. start SMs running for some or all non-running archives;"
-          echo "   2. remove all remaining non-running archives with 'nuocmd delete archive (--purge)';"
-          echo "   3. or delete the entire database with 'compose down'."
-          echo "After fixing the issue(s) per above, you can run 'compose up' again."
-          exit 98
-        fi
-        if [ -n '$IMPORT_LOCAL$IMPORT_REMOTE' -a ! -f "$$ARCHIVE_DIR/1.atm" -a "$$runningArchives" -eq 0 ]; then
-          echo "Importing into empty archive..."
-          [[ -n '$IMPORT_REMOTE' && '$IMPORT_REMOTE' != ?*://?* ]] && echo "ERROR: IMPORT_REMOTE is not a valid URL: $IMPORT_REMOTE - import aborted" && exit 98
-          if [ -n "$$myArchive" ]; then
-            echo "Cleaning up archive tombstone for $$HOSTNAME: $$myArchive..."
-            [ $$(nuocmd get archives --db-name $DB_NAME | wc -l) -eq 1 ] && echo "Cleaning up database first..." && nuocmd delete database --db-name $DB_NAME 2>&1 || exit 98
-            nuocmd delete archive --archive-id $$myArchive --purge 2>&1 || exit 98
-          fi
-          importFromCache='false'
-          if [ -n '$IMPORT_REMOTE' ]; then
-            [ -n '$IMPORT_AUTH' -a '$IMPORT_AUTH' != ':' ] && curlAuth='--user $IMPORT_AUTH'
-            if [ -n '$IMPORT_LOCAL' ]; then
-              if [ -d '$IMPORT_MOUNT' -a $$(ls -1 '$IMPORT_MOUNT' | wc -l) -eq 0 ]; then
-                echo "Extracting and caching $IMPORT_REMOTE into directory host:$IMPORT_LOCAL..."
-                time curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $IMPORT_MOUNT || exit 98
-                importFromCache='true'
-              elif [ ! -s '$IMPORT_MOUNT' ]; then
-                echo "Caching $IMPORT_REMOTE into file host:$IMPORT_LOCAL..."
-                time curl -k $${curlAuth:-} '$IMPORT_REMOTE' > '$IMPORT_MOUNT' || exit 98
-                importFromCache='true'
-              else
-                echo "host:$IMPORT_LOCAL is not empty - assuming it contains a cached copy of $IMPORT_REMOTE."
-                importFromCache='true'
-              fi
-            else
-              echo "IMPORT_LOCAL is not set - caching disabled."
-              echo "Importing from $IMPORT_REMOTE into $$ARCHIVE_DIR..."
-              time curl -k $${curlAuth:-} '$IMPORT_REMOTE' | tar xzf - --strip-components ${IMPORT_LEVEL:-1} -C $$ARCHIVE_DIR || exit 98
-            fi
-          else
-            [ -f '$IMPORT_MOUNT' -a ! -s '$IMPORT_MOUNT' ] && echo "ERROR: IMPORT_LOCAL file host:$IMPORT_LOCAL is empty." && exit 98
-            [ -d '$IMPORT_MOUNT' -a $$(ls -1 '$IMPORT_MOUNT' | wc -l) -eq 0 ] && echo "ERROR: IMPORT_LOCAL directory host:$IMPORT_LOCAL is empty." && exit 98
-            importFromCache='true'
-          fi
-          if [ -n '$IMPORT_LOCAL' ]; then
-            [ -n '$IMPORT_REMOTE' -a "$$importFromCache" = 'true' -a -s '$IMPORT_MOUNT' ] && echo "Using host:$IMPORT_LOCAL as a cached copy of $IMPORT_REMOTE..."
-            if [ -d '$IMPORT_MOUNT' ]; then
-              echo "Importing directory host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
-              time nuodocker restore archive --origin-dir $IMPORT_MOUNT --restore-dir $$ARCHIVE_DIR --db-name "$DB_NAME" --clean-metadata || exit 98
-            elif [ "$$importFromCache" = 'true' -a -s '$IMPORT_MOUNT' ]; then
-              echo "Importing file host:$IMPORT_LOCAL into $$ARCHIVE_DIR..."
-              time tar xf '$IMPORT_MOUNT' --strip-components ${IMPORT_LEVEL:-1} -C "$$ARCHIVE_DIR" || exit 98
-            else
-              echo "ERROR: IMPORT_LOCAL has been specified, but host:$IMPORT_LOCAL is not a valid import source - IMPORT_LOCAL must be a directory, an initially empty file, or a cached copy of IMPORT_REMOTE - import aborted..."
-              exit 98
-            fi
-          fi
-          [ -d "$$ARCHIVE_DIR/full" ] && echo "ERROR: Imported data looks like a BACKUPSET (in which case IMPORT_LOCAL must be a DIRECTORY): $$(ls -l $$ARCHIVE_DIR | head -n 10)" && exit 98 
-          [ ! -f "$$ARCHIVE_DIR/1.atm" ] && echo "ERROR: Imported archive does not seem to contain valid data: $$(ls -l $$ARCHIVE_DIR | head -n 10)" && exit 98
-          echo "Imported data looks good: $$(ls -l $$ARCHIVE_DIR | head -n 5)"
-          if [ ! -d '$IMPORT_MOUNT' ]; then
-            nuodocker restore archive --origin-dir "$$ARCHIVE_DIR" --restore-dir "$$ARCHIVE_DIR" --db-name "$DB_NAME" --clean-metadata || exit 99
-          fi
-        fi
-        nuodocker start sm --db-name '$DB_NAME' --server-id '${PEER_ADDRESS:-nuoadmin1}' --archive-dir $$ARCHIVE_DIR --dba-user '$DB_USER' --dba-password '$DB_PASSWORD' --options 'alt-address sm1' --database-options "$$DB_OPTIONS"
+    command: [ "/usr/local/scripts/start-nuosm" ]
+
 
   te1:
     image: $NUODB_IMAGE
+    restart: ${RESTART_POLICY:-unless-stopped}
     environment:
-      # push the current resolved value of the VARs
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
+      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te1}
     hostname: te1
     depends_on:
       - nuoadmin1
       - sm
     ports:
       - 48006:48006
+    volumes:
+      - ./scripts/start-nuote:/usr/local/scripts/start-nuote
 
-    ## NOTE: use '$$' for any variable that is to be evaluated at runtime IN THE SHELL.
-    # Any variable with a single '$' is resolved by docker-compose and written literally into the command string.
-    command:
-      - "sh"
-      - "-c"
-      - |
-        sleepTime=0
-        sleepQuantum=10
-        while [ -z "$$(nuocmd get processes --db-name $DB_NAME | grep 'state=RUNNING')" -o $$? -ne 0 ] ; do
-          if [ $$sleepTime -ge $$STARTUP_TIMEOUT ]; then
-            echo "Timed out waiting for database startup ($$sleepTime sec)..."
-            exit 97
-          fi
-          echo "Waiting for confirmation that database $DB_NAME is started..."
-          sleep $$sleepQuantum
-          sleepTime=$$(( sleepTime + sleepQuantum ))
-          [ $$sleepQuantum -lt $$((STARTUP_TIMEOUT / 2)) ] && sleepQuantum=$$(( sleepQuantum + 30 ))
-        done
-        nuodocker start te --db-name '$DB_NAME' --server-id '${PEER_ADDRESS:-nuoadmin1}' --options 'alt-address ${EXTERNAL_ADDRESS:-te1}'
+    command: [ "/usr/local/scripts/start-nuote" ]
 
-  # te2:
-  #   image: $NUODB_IMAGE
-  #   environment:
-  #     # push the current resolved value of the VARs
-  #     NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
-  #     STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
-  #   hostname: te2
-  #   scale: 0
-  #   depends_on:
-  #     - nuoadmin1
-  #     - sm
-  #   ports:
-  #     - 48007:48006
-  #
-  #   ## NOTE: use '$$' for any variable that is to be evaluated at runtime IN THE SHELL.
-  #   # Any variable with a single '$' is resolved by docker-compose and written literally into the command string.
-  #   command:
-  #     - "sh"
-  #     - "-c"
-  #     - |
-  #       sleepTime=0
-  #       sleepQuantum=10
-  #       while [ -z "$$(nuocmd get processes --db-name $DB_NAME | grep 'state=RUNNING')" -o $$? -ne 0 ] ; do
-  #         if [ $$sleepTime -ge $$STARTUP_TIMEOUT ]; then
-  #           echo "Timed out waiting for database startup ($$sleepTime sec)..."
-  #           exit 97
-  #         fi
-  #         echo "Waiting for confirmation that database $DB_NAME is started..."
-  #         sleep $$sleepQuantum
-  #         sleepTime=$$(( sleepTime + sleepQuantum ))
-  #         [ $$sleepQuantum -lt $$((STARTUP_TIMEOUT / 2)) ] && sleepQuantum=$$(( sleepQuantum + 30 ))
-  #       done
-  #       nuodocker start te --db-name '$DB_NAME' --server-id '${PEER_ADDRESS:-nuoadmin1}' --options 'alt-address ${EXTERNAL_ADDRESS:-te2}'
+  te2:
+    image: $NUODB_IMAGE
+    profiles: [ "scale-te2" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
+      STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
+      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te2}
+    hostname: te2
+    depends_on:
+      - nuoadmin1
+      - sm
+    ports:
+      - 48007:48006
+    volumes:
+      - ./scripts/start-nuote:/usr/local/scripts/start-nuote
+    
+    command: [ "/usr/local/scripts/start-nuote" ]
+
+  db:
+    image: $NUODB_IMAGE
+    profiles: [ "all-in-one" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      NUOCMD_API_SERVER: ${PEER_ADDRESS:-db}:8888
+      STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
+      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-db}
+    hostname: db
+    ports:
+      - 48004-48007:48004-48007
+      - 8888:8888
+    volumes:
+      - ./scripts:/usr/local/scripts      
+
+    command: [ "/usr/local/scripts/start-db" ]  
 
   influxdb:
     image: influxdb:1.8
+    profiles: [ "insights" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
     # ports:
       # The API for InfluxDB is served on port 8086
       # - "8086:8086"
@@ -193,17 +102,21 @@ services:
 
   nuocd-sm:
     image: nuodb/nuodb-collector:latest
+    profiles: [ "insights" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
     depends_on:
       - nuoadmin1
       - sm
       - influxdb
     environment:
       INFLUXURL: http://influxdb:8086
-      NUOCD_HOSTNAME: sm
+      NUOCD_HOSTNAME: sm1
     pid: 'service:sm'
 
   nuocd-te1:
     image: nuodb/nuodb-collector:latest
+    profiles: [ "insights" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
     depends_on:
       - nuoadmin1
       - te1
@@ -213,20 +126,23 @@ services:
       NUOCD_HOSTNAME: te1
     pid: 'service:te1'
 
-  # nuocd-te2:
-  #   image: nuodb/nuodb-collector:latest
-  #   depends_on:
-  #     - nuoadmin1
-  #     - te2
-  #     - influxdb
-  #   environment:
-  #     INFLUXURL: http://influxdb:8086
-  #     NUOCMD_API_SERVER:
-  #     NUOCD_HOSTNAME: te2
-  #   pid: 'service:te2'
+  nuocd-te2:
+    image: nuodb/nuodb-collector:latest
+    profiles: [ "insights", "add-te2" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
+    depends_on:
+      - nuoadmin1
+      - te2
+      - influxdb
+    environment:
+      INFLUXURL: http://influxdb:8086
+      NUOCD_HOSTNAME: te2
+    pid: 'service:te2'
     
   grafana:
     image: grafana/grafana:7.5.4
+    profiles: [ "insights" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
     depends_on:
       - influxdb
     environment:
@@ -241,9 +157,8 @@ services:
   #   depends_on:
   #     - te1
   #   environment:
-  #     # a VAR with no value pushes the currently resolved value of that VAR
+  #     PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
   #     DB_NAME:
   #     DB_USER:
   #     DB_PASSWORD:
-  #     PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
   #   command: ["/driver/startup.sh"]

@@ -10,10 +10,18 @@ DB_PASSWORD=dba
 ENGINE_MEM=1Gi
 SQL_ENGINE=vee
 
+# docker compose restart policy.
+# set to one of:
+# - "no"
+# - always
+# - on-failure
+# - unless-stopped
+RESTART_POLICY=unless-stopped
+
 # Set to a larger value if SM startup takes unusually long
 # - for example if IMPORT_LOCAL or IMPORT_REMOTE (see below) is a large file that takes multiple minutes to extract.
 # Value is in seconds.
-STARTUP_TIMEOUT=60
+STARTUP_TIMEOUT=90
 
 # Uncomment and set, or set on the docker-compose command-line to add further engine options
 # ENGINE_OPTIONS=
