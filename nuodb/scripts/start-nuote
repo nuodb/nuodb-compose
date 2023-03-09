@@ -1,6 +1,7 @@
 #!/bin/sh
-
+#
 # start a nuote
+: ${LOGDIR:=/var/log/nuodb}
 
 sleepTime=0
 sleepQuantum=5
