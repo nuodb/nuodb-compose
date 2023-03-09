@@ -120,13 +120,41 @@ services:
 
     environment:
       PEER_ADDRESS: ${PEER_ADDRESS:-db}
-      NUODB_DOMAIN_ENTRYPOINT: ${PEER_ADDRESS:-localhost}
-      NUOCMD_API_SERVER: ${PEER_ADDRESS:-localhost}:8888
+      NUODB_DOMAIN_ENTRYPOINT: localhost
+      NUOCMD_API_SERVER: localhost:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-localhost}
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
-    # hostname: ${PEER_ADDRESS:-db}
+    hostname: ${PEER_ADDRESS:-db}
+    ports:
+      - 48004-48007:48004-48007
+      - 8888:8888
+    volumes:
+      - ./scripts:/usr/local/scripts
+      - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
+      - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}  
+
+    command: [ "/usr/local/scripts/start-monolith" ]  
+
+  instadb:
+    image: $NUODB_IMAGE
+    profiles: [ "instadb" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      net:
+
+    # Do NOT remove this env_file value!!
+    env_file: .env
+
+    environment:
+      PEER_ADDRESS: localhost
+      NUODB_DOMAIN_ENTRYPOINT: localhost
+      NUOCMD_API_SERVER: localhost:8888
+      STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
+      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-localhost}
+      ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
+      DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
     ports:
       - :48004-48007
       - :8888
@@ -135,7 +163,8 @@ services:
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
       - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}  
 
-    command: [ "/usr/local/scripts/start-monolith" ]  
+    command: [ "/usr/local/scripts/start-monolith" ]
+
 
   influxdb:
     image: influxdb:1.8
