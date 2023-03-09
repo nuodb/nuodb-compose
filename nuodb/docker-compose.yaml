@@ -100,9 +100,7 @@ services:
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te2}
     hostname: te2
-    depends_on:
-      - nuoadmin1
-      - sm
+
     ports:
       - 48007:48006
     volumes:
@@ -122,16 +120,16 @@ services:
 
     environment:
       PEER_ADDRESS: ${PEER_ADDRESS:-db}
-      NUODB_DOMAIN_ENTRYPOINT: ${PEER_ADDRESS:-db}
-      NUOCMD_API_SERVER: ${PEER_ADDRESS:-db}:8888
+      NUODB_DOMAIN_ENTRYPOINT: ${PEER_ADDRESS:-localhost}
+      NUOCMD_API_SERVER: ${PEER_ADDRESS:-localhost}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-localhost}
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
-    hostname: ${PEER_ADDRESS:-db}
+    # hostname: ${PEER_ADDRESS:-db}
     ports:
-      - 48004-48007:48004-48007
-      - 8888:8888
+      - :48004-48007
+      - :8888
     volumes:
       - ./scripts:/usr/local/scripts
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb

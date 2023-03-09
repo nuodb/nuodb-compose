@@ -4,6 +4,8 @@
 
 PATH=$PATH:/usr/local/scripts
 
+PEER_ADDRESS=$HOSTNAME
+
 # start a background nuoadmin process
 start-nuoadmin &
 
