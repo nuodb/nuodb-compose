@@ -2,7 +2,7 @@
 # default ENV VAR values
 #
 
-NUODB_IMAGE=nuodb/nuodb-ce:4.1.2.vee-4
+NUODB_IMAGE=nuodb/nuodb-ce:5.0.1-2
 
 DB_NAME=demo
 DB_USER=dba

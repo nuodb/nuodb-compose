@@ -120,7 +120,7 @@ services:
 
     environment:
       PEER_ADDRESS: ${PEER_ADDRESS:-db}
-      NUODB_DOMAIN_ENTRYPOINT: localhost
+      NUODB_DOMAIN_ENTRYPOINT: ${PEER_ADDRESS:-db}
       NUOCMD_API_SERVER: localhost:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-localhost}

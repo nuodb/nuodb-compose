@@ -3,6 +3,8 @@
 # start a nuote
 : ${LOGDIR:=/var/log/nuodb}
 
+echo "Starting TE..."
+
 sleepTime=0
 sleepQuantum=5
 while [ -z "$(nuocmd get processes --db-name $DB_NAME | grep 'state=RUNNING')" -o $? -ne 0 ] ; do
@@ -21,4 +23,4 @@ nuodocker start te \
     --db-name "$DB_NAME" \
     --server-id "${PEER_ADDRESS}" \
     --options "alt-address ${EXTERNAL_ADDRESS}" \
-    2>&1 > $LOGDIR/TE.log
+    2>&1 > $LOGDIR/TE.log 2>&1
