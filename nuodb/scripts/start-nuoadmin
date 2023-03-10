@@ -3,6 +3,7 @@
 #  Start a nuoadmin AP process
 
 : ${LOGDIR:=/var/log/nuodb}
+echo "Starting AP..."
 
 nuoadmin -- \
     pendingProcessTimeout=${STARTUP_TIMEOUT}000 \
@@ -10,4 +11,3 @@ nuoadmin -- \
     thrift.message.max=1073741824 \
     processLivenessCheckSec=30 \
     2>&1 > $LOGDIR/AP.log 2>&1
-    

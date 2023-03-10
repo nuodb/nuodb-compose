@@ -4,28 +4,33 @@
 : ${LOGDIR:=/var/log/nuodb}
 PATH=$PATH:/usr/local/scripts
 
+me="$(basename $0)"
+
 echo "starting SM..."
-echo "=================================="
 
 # do not proceed if the admin layer has failed to become ready
-msg=$(nuocmd check servers --timeout ${STARTUP_TIMEOUT} --check-converged --check-active)
-if [ $? -ne 0 ]; then
-    echo "ERROR: Timed out waiting for admin layer to be ready: $msg"
-    exit 98
-fi
+# msg=$(nuocmd check servers --timeout ${STARTUP_TIMEOUT} --check-converged --check-active)
+# if [ $? -ne 0 ]; then
+#     echo "$me: ERROR: Timed out waiting for admin layer to be ready: $msg"
+#     exit 98
+# fi
 
-nuocmd show domain
-echo "PEER_ADDRESS=$PEER_ADDRESS"
-nuocmd get servers
+# echo "$me: AP is ready..."
+# echo "$me: $(nuocmd show domain)"
+# echo "$me: PEER_ADDRESS=$PEER_ADDRESS"
+# echo "$me: $(nuocmd get servers)"
 
 # shutdown and delete any zombie engine processes (TE or SM)
-nuocmd shutdown server-processes --server-id "${PEER_ADDRESS}" --db-name "$DB_NAME" --evict --timeout 0
+# nuocmd shutdown server-processes --server-id "${PEER_ADDRESS}" --db-name "$DB_NAME" --evict --timeout 0
+
+# remove any zombie process matching the engine that is about to be started
+remove-zombie SM $HOSTNAME
 
 # set up the archive dir
-echo "ARCHIVE_DIR=$ARCHIVE_DIR"
+echo "$me: ARCHIVE_DIR=$ARCHIVE_DIR"
 
 mkdir -p $ARCHIVE_DIR
-[ $? -ne 0 ] && echo "Error creating $ARCHIVE_DIR: $?" && exit 98
+[ $? -ne 0 ] && echo "$0: Error creating $ARCHIVE_DIR: $?" && exit 98
 
 # check for stranded archive definitions - eg from a previous failed startup
 nuocmd show archives --db-name $DB_NAME
@@ -51,6 +56,9 @@ import-archive || exit $?
 
 # start the SM
 nuodocker start sm \
+    --servers-ready-timeout $((STARTUP_TIMEOUT / 2)) \
+    --database-restore-timeout ${RESTORE_TIMEOUT:-$STARTUP_TIMEOUT} \
+    --processes-ready-timeout $((STARTUP_TIMEOUT / 2)) \
     --db-name "$DB_NAME" \
     --server-id "${PEER_ADDRESS}" \
     --dba-user "$DB_USER" \

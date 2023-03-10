@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# remove a zombie of the engine that is trying to start
+
+# the caller mut specify the hostname
+hostType=$1
+hostName=$2
+
+# wait until the admin layer has become ready
+msg=$(nuocmd check servers --timeout ${STARTUP_TIMEOUT} --check-converged --check-active)
+if [ $? -ne 0 ]; then
+    echo "$me: ERROR: Timed out waiting for admin layer to be ready: $msg"
+    exit 98
+fi
+
+myStartIds="$(nuocmd get processes --db-name $DB_NAME | grep 'type=$hostType' | grep 'address=$hostName/' | grep -o 'start-id: [0-9]*' | sed 's/start-id: //' )"
+
+count=$(echo $myStartIds | wc -l)
+echo "$(basename $0): Found $((count - 1)) matching start-ids: $myStartIds"
+
+for id in $myStartIds ; do
+    # delete any matching engine processes still in the Raft state
+    msg="$(nuocmd shutdown process --server-id --start-id $id --evict --timeout 0)"
+    [ $? -ne 0 ] && echo "ERROR: Unable to remove engine with start-id $id: $msg"
+done

@@ -2,24 +2,35 @@
 #
 # start a nuote
 : ${LOGDIR:=/var/log/nuodb}
+PATH=$PATH:/usr/local/scripts
+
+me="$(basename $0)"
 
 echo "Starting TE..."
 
-sleepTime=0
-sleepQuantum=5
-while [ -z "$(nuocmd get processes --db-name $DB_NAME | grep 'state=RUNNING')" -o $? -ne 0 ] ; do
-    if [ $sleepTime -ge $STARTUP_TIMEOUT ]; then
-        echo "Timed out waiting for database startup ($sleepTime sec)..."
-        exit 97
-    fi
+# do not proceed if the admin layer has failed to become ready
+# msg=$(nuocmd check servers --timeout ${STARTUP_TIMEOUT} --check-converged --check-active)
+# if [ $? -ne 0 ]; then
+#     echo "$me: ERROR: Timed out waiting for admin layer to be ready: $msg"
+#     exit 98
+# fi
 
-    echo "Waiting for confirmation that database $DB_NAME is started..."
-    sleep $sleepQuantum
-    sleepTime=$(( sleepTime + sleepQuantum ))
-    [ $sleepTime -gt 30 -a $sleepQuantum -lt $((STARTUP_TIMEOUT / 2)) ] && sleepQuantum=$(( sleepQuantum + 30 ))
-done
+# echo "$me: AP ready..."
+
+# remove any zombie process matching the engine that is about to be started
+remove-zombie TE $HOSTNAME
+
+# wait for at least 1 SM to be running
+# if [ -n "$(nuocmd check database --db-name $DB_NAME --check-running --wait-for-acks --timeout ${STARTUP_TIMEOUT})" -o $? -ne 0 ]; then
+#     echo "$me: ERROR: Timed out waiting for database startup ($STARTUP_TIMEOUT sec)..."
+#     exit 97
+# fi
 
 nuodocker start te \
+    --servers-ready-timeout $((STARTUP_TIMEOUT / 2)) \
+    --database-restore-timeout ${RESTORE_TIMEOUT:-$STARTUP_TIMEOUT} \
+    --database-created-timeout $((STARTUP_TIMEOUT / 2)) \
+    --processes-ready-timeout $((STARTUP_TIMEOUT / 2)) \
     --db-name "$DB_NAME" \
     --server-id "${PEER_ADDRESS}" \
     --options "alt-address ${EXTERNAL_ADDRESS}" \
