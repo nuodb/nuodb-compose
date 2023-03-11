@@ -6,7 +6,6 @@ networks:
 services:
   nuoadmin1:
     image: $NUODB_IMAGE
-
     # profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
@@ -23,7 +22,7 @@ services:
       - 48004-48005:48004-48005
       - 8888:8888
     volumes:
-      - ./scripts/start-nuoadmin:/usr/local/scripts/start-nuoadmin
+      - ./scripts:/usr/local/scripts
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
     
     command: [ "/usr/local/scripts/start-nuoadmin" ]
@@ -78,7 +77,7 @@ services:
     ports:
       - 48006:48006
     volumes:
-      - ./scripts/start-nuote:/usr/local/scripts/start-nuote
+      - ./scripts:/usr/local/scripts
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
 
     command: [ "/usr/local/scripts/start-nuote" ]
@@ -104,7 +103,8 @@ services:
     ports:
       - 48007:48006
     volumes:
-      - ./scripts/start-nuote:/usr/local/scripts/start-nuote
+      - ./scripts:/usr/local/scripts
+      - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
     
     command: [ "/usr/local/scripts/start-nuote" ]
 
