@@ -2,6 +2,8 @@
 Docker compose files for starting a nuodb database on the local host;
   - and - optionally - initialising the database state from an existing NuoDB backup.
 
+_NOTE:_ `docker compose` is intentionally a very simple tool - so the commands are more wordy than would be ideal, some desirable automation is just not possible, and some benign error messages a occasionally emitted.
+
 ## Use Cases ##
 * Create a local NuoDB database in docker on a developer's laptop;
 * Create a local copy of an existing database for diagnostic purposes;
@@ -25,14 +27,15 @@ Docker compose files for starting a nuodb database on the local host;
     * this is _not_ how NuoDB is deployed in PROD, but is an easily managed, and resource optimised, option on a local machine.
 * `instadb`
   * This is a database in a single container (as per `monolith`) - but with dynamic port mapping.
-    * This allows multiple `instadb` databases to run on the same host simultaneously.
-    * To ensure container name uniqueness, each `instadb` instance must be running in a different `project` from any other `insadb` instance.
+    * this allows multiple `instadb` databases to run on the same host simultaneously.
+    * the downside is that because of the dyn amically-mapped ports, the mapped public port cannot be predicted, and so external connections will need to use `direct=true`;
+    * to ensure container name uniqueness, each `instadb` instance must be running in a different `project` from any other `insadb` instance.
 
 These docker compose files will create:
 * a new docker network specifically for the project;
 * a database in one of 4 possible configurations (see above).
 
-
+### scaling a database  ##
 * a second TE can be added to a `distributed` database;
   * see the `scale-te2` profile.
 
@@ -40,7 +43,7 @@ Note that all container names will have the `project` name embedded - which is t
 The default is fine for all configurations except any 2nd and further `instadb` databases.
 
 # Instructions #
-## Creating the database ##
+## Getting Started ##
 0. clone the repo.
 
 1. cd to the `nuodb` directory.
@@ -67,53 +70,78 @@ The default is fine for all configurations except any 2nd and further `instadb` 
 _*NOTE:*_ In earlier versions of `docker`, the `docker-compose` command was the only form that worked with nuodb-compose.
 However, with newer versions of `docker` both `docker-compose` _and_ `docker compose` work - and `docker-compose` is slated to be removed from the `docker` product.
 
-## Managing a database ##
-* create a database using `docker compose ... up ...`
-* stop a database _WITHOUT_ deleting its storage
-  * `docker compose ... stop ...`
-* restart a stopped database and _CONTINUE_ using its existing storage
-  * `docker compose ... start ...`
-* delete a database _AND_ its storage
-  * `docker compose ... down`
+## Overview: Managing a database ##
+* a database is created using `docker compose ... up ...`;
+* a database can be `stopped` _WITHOUT_ deleting its storage:
+  * `docker compose ... stop ...`;
+* a stopped database can be `restarted` and will _CONTINUE_ using its previous existing storage:
+  * `docker compose ... start ...`;
+* a database is `deleted` _WITH_ its storage:
+  * `docker compose ... down`;
+* a client app connects to a database by configuring a port on the host `localhost` network into its connection string/params;
+* Because `docker compose` does not scope the   docker networks` it creates to a particular file or profile, `docker compose ... down` may attempt to delete a network that is still in use by a different database.
+The error looks like the following, and can be ignored:
+```
+ ⠿ Network nuodb_net          Error                                                                                                                                                0.0s
+failed to remove network df0df85905b1702fea9c1a20a1142b9f4ff85f07844087b520f072c8a6af5e68: Error response from daemon: error while removing network: network nuodb_net id df0df85905b1702fea9c1a20a1142b9f4ff85f07844087b520f072c8a6af5e68 has active endpoints
+```
 
 ### Managing a `distributed` database ###
 *NOTE:* the `distributed` database is the default configuration.
-* `create` with: `docker compose up -d`
+* `create` with: `docker compose up -d`;
 * `stop` (temporarily) all containers with: `docker compose stop`
   * this will _*NOT*_ delete the database storage;
-* `restart` a stopped database with: `docker compose start`
-* `delete` - including storage - with `docker compose down`
+* `restart` a stopped database with: `docker compose start`;
+* `delete` - including storage - with `docker compose down`;
+* `connect` to a `distributed` database using `localhost:48004` in the connection string.
 
 #### scaling out a `distributed` database ####
 * to scale out a `distributed` database with a _second_ TE:
-  * `docker compose --profile scale-te2 up -d`
+  * `docker compose --profile scale-te2 up -d`;
 * to scale in a `te2` on a `distributed` database:
-  * `docker compose --profile scale-te2 stop`
+  * `docker compose --profile scale-te2 stop`;
 * to delete a `distributed` _plus_ its scaled-out `te2` in a single command:
-  * `docker compose --profile scale-te2 down`
+  * `docker compose --profile scale-te2 down`;
 
 
 ### Managing a `monolith` database ###
 *NOTE:* the `monolith` topology must be specified explicitly.
-* `create` with: `docker compose -f monolith.yaml up -d`
-* `stop` (temporarily) all containers with: `docker compose -f monolith.yaml stop`
+* `create` with: `docker compose -f monolith.yaml up -d`;
+* `stop` (temporarily) all containers with: `docker compose -f monolith.yaml stop`;
   * this will _*NOT*_ delete the database storage;
-* `restart` a stopped database with: `docker compose -f monolith.yaml start`
-* `delete` - including storage - with `docker compose -f monolith down`
+* `restart` a stopped database with: `docker compose -f monolith.yaml start`;
+* `delete` - including storage - with `docker compose -f monolith down`;
+* `connect` to a `monolith` database using `localhost:48008` in the connection string.
 
 ### Managing an `instadb` database ###
-* `create` with: `docker compose -f instadb.yaml up -d`
-* `stop` (temporarily) all containers with: `docker compose -f instadb.yaml stop`
+* `create` with: `docker compose -f instadb.yaml up -d`;
+* `stop` (temporarily) all containers with: `docker compose -f instadb.yaml stop`;
   * this will _*NOT*_ delete the database storage;
-* `restart` a stopped database with: `docker compose -f intadb.yaml start`
-* `delete` - including storage - with `docker compose -f instadb.yaml down`
+* `restart` a stopped database with: `docker compose -f intadb.yaml start`;
+* `delete` - including storage - with `docker compose -f instadb.yaml down`;
+* `connect` to an `instadb` by setting `direct=tru` in the connection properties;
+  * and setting `localhost:<mapped-port>` in the connection string;
+    * where `<mapped-port>` is the public port mapped to port `48007` for that container.
+    
+Connection Example
+```
+$ docker ps
+CONTAINER ID   IMAGE                  COMMAND                  CREATED         STATUS         PORTS                                                                                                                             NAMES
+4d6592a3e976   nuodb/nuodb:5.0.0.2    "docker-entrypoint.s…"   6 seconds ago   Up 5 seconds   0.0.0.0:53469->8888/tcp, 0.0.0.0:53465->48004/tcp, 0.0.0.0:53466->48005/tcp, 0.0.0.0:53467->48006/tcp, 0.0.0.0:53468->48007/tcp   nuodb-instadb-1
+
+# or alternatively:
+$ docker compose port instadb 48007
+0.0.0.0:53468
+```
+To connect to the database in this example, use `localhost:53468` in the connection string.
+
 
 #### managing multiple `instadb` databases ####
-* `create` an additional `instadb` with: `docker compose -p <new-project> -f instadb.yaml up -d`
-* `stop` (temporarily) all containers of a specific `instadb` with: `docker compose -p <project-name> -f instadb.yaml stop`
+* `create` an additional `instadb` with: `docker compose -p <new-project> -f instadb.yaml up -d`;
+* `stop` (temporarily) all containers of a specific `instadb` with: `docker compose -p <project-name> -f instadb.yaml stop`;
   * this will _*NOT*_ delete the database storage;
-* `restart` a stopped database with: `docker compose -p <project-name> -f intadb.yaml start`
-* `delete` - including storage - with `docker compose -p <project-name> -f instadb.yaml down`
+* `restart` a stopped database with: `docker compose -p <project-name> -f intadb.yaml start`;
+* `delete` - including storage - with `docker compose -p <project-name> -f instadb.yaml down`;
 
 ## Notes ##
 1. You can specify env vars on the command-line in linux or MacOS, by setting them _before_ the `docker compose` command.
@@ -207,3 +235,8 @@ When running `... docker compose up` a subsequent time, you need to decide if yo
   - you _DON'T_ need to if the database state has already been successfully imported;
   - you probably _DO_ need to if you had them set for the original `docker compose up` command, and the `import` has not yet succeeded.
 
+7. If you get an error about being unable to delete a network because it has active end-points, you can normally safely ignore this.
+```
+ ⠿ Network nuodb_net          Error                                                                                                                                                0.0s
+failed to remove network df0df85905b1702fea9c1a20a1142b9f4ff85f07844087b520f072c8a6af5e68: Error response from daemon: error while removing network: network nuodb_net id df0df85905b1702fea9c1a20a1142b9f4ff85f07844087b520f072c8a6af5e68 has active endpoints
+```
