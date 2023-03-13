@@ -34,4 +34,4 @@ nuodocker start te \
     --db-name "$DB_NAME" \
     --server-id "${PEER_ADDRESS}" \
     --options "alt-address ${EXTERNAL_ADDRESS}" \
-    2>&1 > $LOGDIR/TE.log 2>&1
+    2>&1 | tee $LOGDIR/TE.log

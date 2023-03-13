@@ -64,5 +64,5 @@ nuodocker start sm \
     --dba-user "$DB_USER" \
     --dba-password "$DB_PASSWORD" \
     --database-options "$DB_OPTIONS" \
-    2>&1 > $LOGDIR/SM.log 2>&1
+    2>&1 | tee $LOGDIR/SM.log
 

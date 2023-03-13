@@ -10,4 +10,4 @@ nuoadmin -- \
     pendingReconnectTimeout=90000 \
     thrift.message.max=1073741824 \
     processLivenessCheckSec=30 \
-    2>&1 > $LOGDIR/AP.log 2>&1
+    1>/dev/null | tee $LOGDIR/AP.log
