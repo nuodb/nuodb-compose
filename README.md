@@ -18,7 +18,7 @@ _NOTE:_ `docker compose` is intentionally a very simple tool - so the commands a
 * `distributed` (default)
   * This is a database comprising a _separate_ container for each database process:
     * Separate AP (admin), TE, and SM containers - one for each NuoDB process;
-    * This is the way NuoDB is deployed in production and under Kubernetes, but may be overkill for a local machine - especially a laptop.
+    * This is the same topology used when NuoDB is deployed in production and under Kubernetes, but may be overkill for a local machine - especially a laptop.
 * `distributed + insights`
   * This is a database comprising 3 separate containers for the database processes (as above), plus additional containers including `influxdb` and `grafana` to enable metrics publishing and display.
   * This is currently the _only_ configuration that supports NuoDB `Insights` monitoring.
@@ -28,7 +28,7 @@ _NOTE:_ `docker compose` is intentionally a very simple tool - so the commands a
 * `instadb`
   * This is a database in a single container (as per `monolith`) - but with _dynamic port mapping_.
     * This allows multiple `instadb` databases to run on the same host simultaneously.
-    * The downside is that because of the dynamically-mapped ports, the mapped public port cannot be predicted, and so external connections (such a non-containerized applications running on the same computer) will need to use the `direct=true` connection property;
+    * The downside is that because of the dynamically-mapped ports, the mapped public port cannot be predicted, and so external connections (such as non-containerized applications running on the same computer) will need to use the `direct=true` connection property;
     * To ensure container name uniqueness, each `instadb` instance must be running in a different `project` from any other `insadb` instance.
 
 These Docker compose files will create:
@@ -77,9 +77,11 @@ However, with newer versions of `docker` both `docker-compose` _and_ `docker com
   * `docker compose ... stop ...`;
 * A stopped database can be `restarted` and will _CONTINUE_ using its previous existing storage:
   * `docker compose ... start ...`;
-* A database is `deleted` _WITH_ its storage:
+* A database is `deleted` _WITH_ its storage using:
   * `docker compose ... down`;
-* A client app connects to a database by configuring a port on the host `localhost` network into its connection string/params;
+* A client app connects to a database by configuring a port on the host network - set with the variable `EXTERNAL_ADDRESS` - into its connection string/params;
+  * example: `EXTERNAL_ADDRESS=192.167.0.123` if the local host's network address is `192.168.0.123`
+  * example: `EXTERNAL_ADDRESS=localhost` if `docker` can resolve 
 * Because `docker compose` does not scope the Docker networks it creates to a particular file or profile, `docker compose ... down` may attempt to delete a network that is still in use by a different database.
 The error looks like the following, and can be ignored:
    ```
@@ -101,7 +103,7 @@ The error looks like the following, and can be ignored:
   * this will _*NOT*_ delete the database storage;
 * `restart` a stopped database with: `docker compose start`;
 * `delete` - including storage - with `docker compose down`;
-* `connect` to a `distributed` database using `localhost:48004` in the connection string.
+* `connect` to a `distributed` database using the value of `EXTERNAL_ADDRESS` in the connection string.
 
 #### Scaling Out a `distributed` Database ####
 
@@ -121,34 +123,39 @@ The error looks like the following, and can be ignored:
   * this will _*NOT*_ delete the database storage;
 * `restart` a stopped database with: `docker compose -f monolith.yaml start`;
 * `delete` - including storage - with `docker compose -f monolith down`;
-* `connect` to a `monolith` database using `localhost:48008` in the connection string.
+* `connect` to a `monolith` database using the value of `EXTERNAL_ADDRESS` in the connection string;
+  * example connection string: `jdbc:com.nuodb://192/.168.0.123/demo`
+  * example connection string: `jdbc:com.nuodb://localhost/demo`
 
 ### Managing an `instadb` Database ###
+
+*NOTE:* the `instadb` topology must be specified explicitly.
 
 * `create` with: `docker compose -f instadb.yaml up -d`;
 * `stop` (temporarily) all containers with: `docker compose -f instadb.yaml stop`;
   * this will _*NOT*_ delete the database storage;
 * `restart` a stopped database with: `docker compose -f intadb.yaml start`;
 * `delete` - including storage - with `docker compose -f instadb.yaml down`;
-* `connect` to an `instadb` by setting `direct=tru` in the connection properties;
-  * and setting `localhost:<mapped-port>` in the connection string;
-    * where `<mapped-port>` is the public port mapped to port `48007` for that container.
+* `connect` to an `instadb` by setting `direct=true` in the connection properties;
+  * and setting the value of `EXTERNAL_ADDRESS:<mapped-port>` in the connection string;
+    * where `<mapped-port>` is the public port mapped to port `48006` for that container.
     
 **Port mapping example:**
 
-Note that the TE is always on container port 48007
+Note that the TE is always on container (internal) port 48006
 
 ```
 $ docker ps
-CONTAINER ID   IMAGE                  COMMAND                  CREATED         STATUS         PORTS                                                                                                                             NAMES
-4d6592a3e976   nuodb/nuodb:5.0.0.2    "docker-entrypoint.s…"   6 seconds ago   Up 5 seconds   0.0.0.0:53469->8888/tcp, 0.0.0.0:53465->48004/tcp, 0.0.0.0:53466->48005/tcp, 0.0.0.0:53467->48006/tcp, 0.0.0.0:53468->48007/tcp   nuodb-instadb-1
+CONTAINER ID   IMAGE                  COMMAND                  CREATED         STATUS         PORTS                                                                                                   NAMES
+458760270ee7   nuodb/nuodb:5.0.0.2    "docker-entrypoint.s…"   6 minutes ago   Up 6 minutes   0.0.0.0:54587->8888/tcp, 0.0.0.0:54584->48004/tcp, 0.0.0.0:54585->48005/tcp, 0.0.0.0:54586->48006/tcp   nuodb-instadb-1
 
-# or alternatively:
-$ docker compose port instadb 48007
-0.0.0.0:53468
+$ docker compose port instadb 48006
+0.0.0.0:54586
 ```
 
-In this example, to connect to the database (actually to its TE) use `localhost:53468` in the connection string.
+In this example, to connect to the database (actually to its TE) use the value of `EXTERNAL_ADDRESS:54586` in the connection string (along with `direct=true`).
+  * example connection string: `jdbc:com.nuodb://192.168.0.123:54586/demo?direct=true`
+  * example connection string: `jdbc:com.nuodb://localhost:54586/demo?direct=true`
 
 ### Managing _Multiple_ `instadb` Databases ###
 

@@ -128,7 +128,7 @@ services:
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
     hostname: ${PEER_ADDRESS:-db}
     ports:
-      - 48004-48007:48004-48007
+      - 48004-48006:48004-48006
       - 8888:8888
     volumes:
       - ./scripts:/usr/local/scripts
@@ -156,7 +156,7 @@ services:
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
     ports:
-      - :48004-48007
+      - :48004-48006
       - :8888
     volumes:
       - ./scripts:/usr/local/scripts
