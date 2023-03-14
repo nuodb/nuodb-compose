@@ -51,24 +51,24 @@ This default is fine for all configurations except `instadb` databases (you can 
 2. Copy the `env-default` file to `.env` (this step is _NOT_ optional).
 
 3. Edit the `.env` file:
-  - `ENGINE_MEM`
-    - Sets the memory cache size for each TE and SM.
-  - `SQL_ENGINE`:
-    - if you want to use a specific SQL engine, such as `scalar` (`vector` is the default), you will also need an image that supports that engine;
-  - `EXTERNAL_ADDRESS`:
-    - if you want to access the database from outside the `docker network` - for example from an app running direcly on the local host - then set `EXTERNAL_ADDRESS`;
-      - either in the `.env` file, _or_ by setting `EXTERNAL_ADDRESS` on the `docker compose up` command-line;
-      - set to the address of the local host machine (Ex `192.168.0.123`);
-      - on some platforms, setting `EXTERNAL_ADDRESS` to `127.0.0.1` also works;
-  - `IMPORT_LOCAL`, `IMPORT_REMOTE`, `IMPORT_TIMEOUT`, `IMPORT_AUTH`, `IMPORT_LEVEL`
-    - if you want to import initial state from a database backup into the new database, set `IMPORT_LOCAL` and/or `IMPORT_REMOTE` (see `Notes` below for details of `IMPORT_LOCAL` and `IMPORT_REMOTE`);
-      - the `import` operation is only performed when the archive dir is _empty_ - so the SM container can be stopped and restarted without being reinitialised each time.
-      - if you have set `IMPORT_LOCAL` or `IMPORT_REMOTE` _and_ it is a large archive that takes multiple minutes to import, you _will_ need to
-        set `IMPORT_TIMEOUT` to a value larger than the time taken to import - in order to stop the DB startup from timing out before the IMPORT has completed.
+    - `ENGINE_MEM`
+      - Sets the memory cache size for each TE and SM.
+    - `SQL_ENGINE`:
+      - if you want to use a specific SQL engine, such as `scalar` (`vector` is the default), you will also need an image that supports that engine;
+    - `EXTERNAL_ADDRESS`:
+      - if you want to access the database from outside the `docker network` - for example from an app running direcly on the local host - then set `EXTERNAL_ADDRESS`;
+        - either in the `.env` file, _or_ by setting `EXTERNAL_ADDRESS` on the `docker compose up` command-line;
+        - set to the address of the local host machine (Ex `192.168.0.123`);
+        - on some platforms, setting `EXTERNAL_ADDRESS` to `127.0.0.1` also works;
+    - `IMPORT_LOCAL`, `IMPORT_REMOTE`, `IMPORT_TIMEOUT`, `IMPORT_AUTH`, `IMPORT_LEVEL`
+      - if you want to import initial state from a database backup into the new database, set `IMPORT_LOCAL` and/or `IMPORT_REMOTE` (see `Notes` below for details of `IMPORT_LOCAL` and `IMPORT_REMOTE`);
+        - the `import` operation is only performed when the archive dir is _empty_ - so the SM container can be stopped and restarted without being reinitialised each time.
+        - if you have set `IMPORT_LOCAL` or `IMPORT_REMOTE` _and_ it is a large archive that takes multiple minutes to import, you _will_ need to
+          set `IMPORT_TIMEOUT` to a value larger than the time taken to import - in order to stop the DB startup from timing out before the IMPORT has completed.
 
 
 _*NOTE:*_ In earlier versions of `docker`, the `docker-compose` command was the only form that worked with nuodb-compose.
-However, with newer versions of `docker` both `docker-compose` _and_ `docker compose` work - and `docker-compose` is slated to be removed from the `docker` product.
+However, with newer versions of `docker` both `docker-compose` _and_ `docker compose` work. `docker-compose` is slated to be removed from the `docker` product.
 
 ## Overview: Managing a database ##
 
@@ -84,6 +84,7 @@ However, with newer versions of `docker` both `docker-compose` _and_ `docker com
   * example: `EXTERNAL_ADDRESS=localhost` if `docker` can resolve 
 * Because `docker compose` does not scope the Docker networks it creates to a particular file or profile, `docker compose ... down` may attempt to delete a network that is still in use by a different database.
 The error looks like the following, and can be ignored:
+
    ```
     ⠿ Network nuodb_net          Error                                                                                                                                                0.0s
     failed to remove network df0df85905b1702fea9c1a20a1142b9f4ff85f07844087b520f072c8a6af5e68: Error response from daemon: error while removing network: network nuodb_net id df0df85905b1702fea9c1a20a1142b9f4ff85f07844087b520f072c8a6af5e68 has active endpoints
@@ -116,7 +117,7 @@ The error looks like the following, and can be ignored:
 
 ### Managing a `monolith` Database ###
 
-*NOTE:* the `monolith` topology must be specified explicitly.
+*NOTE:* the `monolith` topology must be specified explicitly by using `-f monolith.yaml`.
 
 * `create` with: `docker compose -f monolith.yaml up -d`;
 * `stop` (temporarily) all containers with: `docker compose -f monolith.yaml stop`;
@@ -129,7 +130,7 @@ The error looks like the following, and can be ignored:
 
 ### Managing an `instadb` Database ###
 
-*NOTE:* the `instadb` topology must be specified explicitly.
+*NOTE:* the `instadb` topology must be specified explicitly by using `-f instadb.yaml`.
 
 * `create` with: `docker compose -f instadb.yaml up -d`;
 * `stop` (temporarily) all containers with: `docker compose -f instadb.yaml stop`;
@@ -154,8 +155,8 @@ $ docker compose port instadb 48006
 ```
 
 In this example, to connect to the database (actually to its TE) use the value of `EXTERNAL_ADDRESS:54586` in the connection string (along with `direct=true`).
-  * example connection string: `jdbc:com.nuodb://192.168.0.123:54586/demo?direct=true`
-  * example connection string: `jdbc:com.nuodb://localhost:54586/demo?direct=true`
+  * Example connection string: `jdbc:com.nuodb://192.168.0.123:54586/demo?direct=true`
+  * Example connection string: `jdbc:com.nuodb://localhost:54586/demo?direct=true`
 
 ### Managing _Multiple_ `instadb` Databases ###
 
@@ -165,11 +166,16 @@ In this example, to connect to the database (actually to its TE) use the value o
 * `restart` a stopped database with: `docker compose -p <project-name> -f intadb.yaml start`;
 * `delete` - including storage - with `docker compose -p <project-name> -f instadb.yaml down`;
 
-## Notes ##
-1. You can specify environment variables on the command-line on Linux or MacOS, by setting them _before_ the `docker compose` command.
-- Example: `$ IMPORT_LOCAL=./mydb.bak.tgz STARTUP_TIMEOUT=300 docker compose up -d`
+## Importing Existing Data ##
 
-2. The initial state of the database can be imported using `IMPORT_LOCAL` and/or `IMPORT_REMOTE`, as follows:
+The initial state of the database can be imported using `IMPORT_LOCAL` and/or `IMPORT_REMOTE`.
+
+*NOTE:* You can specify environment variables on the command-line on Linux or MacOS, by setting them _before_ the `docker compose` command.
+
+- *Example:* `$ IMPORT_LOCAL=./mydb.bak.tgz STARTUP_TIMEOUT=300 docker compose up -d`
+
+Steps required:
+
 - Set `IMPORT_LOCAL` to a path on the _local_ machine.
   The SM container will mount this path as a volume and import its contents into the archive dir prior to starting the SM process (presuming the archive is empty);
 
@@ -204,7 +210,7 @@ In this example, to connect to the database (actually to its TE) use the value o
     
     Now you can set `IMPORT_REMOTE` as needed, and set `IMPORT_LOCAL` to `a/b/c`.
 
-## What could possibly go wrong?? ##
+## What Could Possibly Go Wrong?? ##
 
 1. If you get an error in the form:
     ```
