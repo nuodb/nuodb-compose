@@ -1,0 +1,63 @@
+#!/bin/sh
+
+# Start all 3 processes needed for a database in this (single) container.
+
+PATH=$PATH:/usr/local/scripts
+
+PEER_ADDRESS=$HOSTNAME
+
+me="$(basename $0)"
+
+echo "=================================="
+
+# start a background nuoadmin process
+start-nuoadmin &
+
+# wait until the admin layer has become ready
+msg=$(nuocmd check servers --timeout ${STARTUP_TIMEOUT} --check-converged --check-active)
+if [ $? -ne 0 ]; then
+    echo "$me: ERROR: Timed out waiting for admin layer to be ready: $msg"
+    exit 98
+fi
+
+# delete any engine processes still in the Raft state
+nuocmd shutdown server-processes --server-id "${PEER_ADDRESS}" --db-name "$DB_NAME" --evict --timeout 0
+
+echo "$me: AP is ready - starting SM and TE"
+
+# start a background nuosm process
+start-nuosm &
+
+# start a background nuote process
+start-nuote &
+
+echo "$me: Waiting for DB $DB_NAME to become RUNNING..."
+nuocmd check database --db-name $DB_NAME --check-running --wait-for-acks --timeout "${STARTUP_TIMEOUT}"     # wait for RUNNING SM
+nuocmd check database --db-name $DB_NAME --check-running --wait-for-acks --timeout 10     # wait for RUNNING SM + all other engines are alive
+if [ -n "$(nuocmd get processes --db-name $DB_NAME | grep 'type=TE' | grep 'state=RUNNING')" -a $? = 0 ]; then
+    echo "$me: Database is RUNNING..."
+else
+    echo "$me: Database check timed out after $STARTUP_TIMEOUT sec"
+
+    echo "$me: $(nuocmd show database --db-name "$DB_NAME" --all-incarnations)"
+
+    if [ -n "$NUODB_DEBUG" ]; then
+        echo "$me: SM logs"
+        cat /var/log/nuodb/SM.log
+
+        echo
+        echo "$me: TE logs"
+        cat /var/log/nuodb/TE.log
+
+        echo
+        echo "$me: AP logs"
+        cat /var/log/nuodb/AP.log
+    fi
+fi
+
+echo "$me: $(nuocmd show domain)"
+
+# wait for all child processes to stop
+wait
+
+echo "$me: Database $DB_NAME has been stopped. Exiting."

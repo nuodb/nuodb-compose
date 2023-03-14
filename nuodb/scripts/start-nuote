@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# start a nuote
+: ${LOGDIR:=/var/log/nuodb}
+PATH=$PATH:/usr/local/scripts
+
+me="$(basename $0)"
+
+echo "Starting TE..."
+
+# do not proceed if the admin layer has failed to become ready
+# msg=$(nuocmd check servers --timeout ${STARTUP_TIMEOUT} --check-converged --check-active)
+# if [ $? -ne 0 ]; then
+#     echo "$me: ERROR: Timed out waiting for admin layer to be ready: $msg"
+#     exit 98
+# fi
+
+# echo "$me: AP ready..."
+
+# remove any zombie process matching the engine that is about to be started
+remove-zombie TE $HOSTNAME
+
+# wait for at least 1 SM to be running
+# if [ -n "$(nuocmd check database --db-name $DB_NAME --check-running --wait-for-acks --timeout ${STARTUP_TIMEOUT})" -o $? -ne 0 ]; then
+#     echo "$me: ERROR: Timed out waiting for database startup ($STARTUP_TIMEOUT sec)..."
+#     exit 97
+# fi
+
+nuodocker start te \
+    --servers-ready-timeout $((STARTUP_TIMEOUT / 2)) \
+    --database-restore-timeout ${RESTORE_TIMEOUT:-$STARTUP_TIMEOUT} \
+    --database-created-timeout $((STARTUP_TIMEOUT / 2)) \
+    --processes-ready-timeout $((STARTUP_TIMEOUT / 2)) \
+    --db-name "$DB_NAME" \
+    --server-id "${PEER_ADDRESS}" \
+    --options "alt-address ${EXTERNAL_ADDRESS} node-port 48006" \
+    2>&1 | tee $LOGDIR/TE.log

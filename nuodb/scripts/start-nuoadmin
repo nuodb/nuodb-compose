@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+#  Start a nuoadmin AP process
+
+: ${LOGDIR:=/var/log/nuodb}
+echo "Starting AP..."
+
+nuoadmin -- \
+    pendingProcessTimeout=${STARTUP_TIMEOUT}000 \
+    pendingReconnectTimeout=90000 \
+    thrift.message.max=1073741824 \
+    processLivenessCheckSec=30 \
+    1>/dev/null | tee $LOGDIR/AP.log
