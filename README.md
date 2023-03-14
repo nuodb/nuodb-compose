@@ -122,7 +122,7 @@ The error looks like the following, and can be ignored:
 * `stop` (temporarily) all containers with: `docker compose -f monolith.yaml stop`;
   * this will _*NOT*_ delete the database storage;
 * `restart` a stopped database with: `docker compose -f monolith.yaml start`;
-* `delete` - including storage - with `docker compose -f monolith down`;
+* `delete` - including storage - with `docker compose -f monolith.yaml down`;
 * `connect` to a `monolith` database using the value of `EXTERNAL_ADDRESS` in the connection string;
   * example connection string: `jdbc:com.nuodb://192/.168.0.123/demo`
   * example connection string: `jdbc:com.nuodb://localhost/demo`
