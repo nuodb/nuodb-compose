@@ -1,6 +1,12 @@
 #
-# default ENV VAR values
+# Default ENV VAR values. You must copy this to .env before running docker-compose.
+# DO NOT modify this file.
 #
+# Any of these variables can be set in .env or overridden at run time.
+# Order of precedence:
+#   Set on the docker-compose command-line (Linux, MacOS).
+#   Set as an environment variable (all platforms).
+#   Value set in .env file.
 
 NUODB_IMAGE=nuodb/nuodb-ce:5.0.1-2
 
@@ -12,7 +18,7 @@ SQL_ENGINE=vee
 LOGDIR=/var/log/nuodb
 
 # docker compose restart policy.
-# set to one of:
+# Set to one of:
 # - "no"
 # - always
 # - on-failure
@@ -22,28 +28,30 @@ RESTART_POLICY=unless-stopped
 # Set to a larger value if database startup takes unusually long
 STARTUP_TIMEOUT=90
 
-# Uncomment and set, or set on the docker-compose command-line to add further engine options
+# Uncomment and set to add further engine options
 # ENGINE_OPTIONS=
 
-# normally this is left unset, causing the default to be used.
+# Normally this is left unset, causing the default to be used.
 ARCHIVE_PATH=
 
-# Set to a larger value if IMPORT_x is set to a large file or dir that takes multiple minutes to restore.
-# Value is in seconds.
+# Set to a larger value if IMPORT_x is set to a large file or dir that takes multiple
+# minutes to restore. Value is in seconds.
 IMPORT_TIMEOUT=
 
-# set IMPORT_LOCAL to the path of a LOCAL tar file on the host where docker-compose is being run.
-# The SM container will mount the file, extract (untar) it and use the contents as the initial state of the database.
+# Set IMPORT_LOCAL to path of a LOCAL tar file on host where docker-compose is being run.
+# The SM container will mount the file, extract (untar) it and use the contents as the
+# initial state of the database.
 IMPORT_LOCAL=
 
-# set IMPORT_REMOTE to the URL of a REMOTE tar file on a remote server - typically http(s) or sftp.
-# The SM container will download the file, extract (untar) it, and use the contents as the initial state of the database.
-# Ex: sftp://sftp.some.domain.com/backup-4-3.tz
-# Ex: https://some.server.io/archives/backup-4-3.tz
+# Set IMPORT_REMOTE to the URL of a REMOTE tar file on a remote server - typically http(s) or sftp.
+# The SM container will download the file, extract (untar) it, and use the contents as
+# the initial state of the database.
+#   Example: sftp://sftp.some.domain.com/backup-4-3.tz
+#  Example: https://some.server.io/archives/backup-4-3.tz
 IMPORT_REMOTE=
 
-# If IMPORT_REMOTE is set, and the remote server requires an authentication token which is NOT embedded in the IMPORT_REMOTE URL,
-# then set IMPORT_AUTH, in the form user:password
+# If IMPORT_REMOTE is set, and the remote server requires an authentication token which
+# is NOT embedded in the IMPORT_REMOTE URL, then set IMPORT_AUTH in form user:password
 IMPORT_AUTH=
 
 # The person supplying the backup TAR file for IMPORT (either local or remote)
@@ -57,5 +65,5 @@ IMPORT_MOUNT=/var/opt/nuodb/import
 # PEER_ADDRESS=nuoadmin1
 # NUOCMD_API_SERVER=nuoadmin1:8888
 
-# Uncomment and set, or set on the docker-compose command-line to enable external access to the database
+# Uncomment and set to enable external access to the database.
 # EXTERNAL_ADDRESS=
