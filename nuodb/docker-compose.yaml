@@ -70,6 +70,7 @@ services:
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te1}
+      EXTERNAL_PORT: "48006"
     hostname: te1
     depends_on:
       - nuoadmin1
@@ -98,10 +99,11 @@ services:
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te2}
+      EXTERNAL_PORT: "48008"
     hostname: te2
 
     ports:
-      - 48007:48006
+      - 48008:48008
     volumes:
       - ./scripts:/usr/local/scripts
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
@@ -217,7 +219,7 @@ services:
 
   nuocd-te2:
     image: nuodb/nuodb-collector:latest
-    profiles: [ "scale-te2" ]
+    profiles: [ "no-scale-te2" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     networks:

@@ -33,5 +33,5 @@ nuodocker start te \
     --processes-ready-timeout $((STARTUP_TIMEOUT / 2)) \
     --db-name "$DB_NAME" \
     --server-id "${PEER_ADDRESS}" \
-    --options "alt-address ${EXTERNAL_ADDRESS} node-port 48006" \
+    --options "alt-address ${EXTERNAL_ADDRESS} node-port ${EXTERNAL_PORT:-48006}" \
     2>&1 | tee $LOGDIR/TE.log
