@@ -1,0 +1,3 @@
+# all files in scripts directory, and all *.sh files, are linux scripts and must retain LF line endings.
+nuodb/scripts/*   text eol=lf
+*.sh              text eol=lf
