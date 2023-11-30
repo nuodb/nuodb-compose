@@ -1,0 +1,3 @@
+# All .sh files and all files in the scripts directory are linux scripts, and must retain their LF eol, even on Windows clients.
+nuodb/scripts/*     text  eol=lf
+*.sh                text  eol=lf
