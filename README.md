@@ -60,7 +60,11 @@ Note that all container names will have the `project` name embedded, which is th
 
 2. Copy the `env-default` file to `.env` (this step is _NOT_ optional).
 
-3. Edit the `.env` file:
+3. If using NuoDB v6 or greater, acquire a NuoDB license file.
+   - If you or your organisation do not have a valid NuoDB license file, contact NuoDB support to request one.
+   - store your NuoDB license file somewhere on your local disk
+
+4. Edit the `.env` file:
     - `ENGINE_MEM`
       - Sets the memory cache size for each TE and SM.
     - `SQL_ENGINE`:
@@ -70,6 +74,9 @@ Note that all container names will have the `project` name embedded, which is th
         - either in the `.env` file, _or_ by setting `EXTERNAL_ADDRESS` on the `docker compose up` command-line (Linux/MacOS) or by first setting `EXTERNAL_ADDRESS` as an environment variable (Windows);
         - set to the address of the local host machine (Ex `192.168.0.123`);
         - on some platforms, setting `EXTERNAL_ADDRESS` to `127.0.0.1` also works;
+    - `LICENSE_PATH` :
+      - If you have a valid NuoDB license file - per step #3 above - then set `LICENSE_PATH` to point to that file path.
+        - Eg: `LICENSE_PATH=./nuodb.lic`
     - `IMPORT_LOCAL`, `IMPORT_REMOTE`, `IMPORT_TIMEOUT`, `IMPORT_AUTH`, `IMPORT_LEVEL`
       - If you want to import initial state from a database backup into the new database, set `IMPORT_LOCAL` and/or `IMPORT_REMOTE` (see `Notes` below for details of `IMPORT_LOCAL` and `IMPORT_REMOTE`);
         - the `import` operation is only performed when the archive dir is _empty_ - so the SM container can be stopped and restarted without being reinitialized each time.
@@ -86,11 +93,12 @@ However, with newer versions of `docker` both `docker-compose` _and_ `docker com
   - `docker compose ... stop ...`;
 - A stopped database can be `restarted` and will _CONTINUE_ using its previous existing storage:
   - `docker compose ... start ...`;
+  - this is often needed after a host machine has been woken up after sleep/hibernation.
 - A database is `deleted` _WITH_ its storage using:
   - `docker compose ... down`;
 - A client app connects to a database by configuring a port on the host network - set with the variable `EXTERNAL_ADDRESS` - into its connection string/params;
   - example: `EXTERNAL_ADDRESS=192.167.0.123` if the local host's network address is `192.168.0.123`
-  - example: `EXTERNAL_ADDRESS=localhost` if `docker` can resolve 
+  - example: `EXTERNAL_ADDRESS=localhost` if `docker` can resolve `localhst`.
 - Because `docker compose` does not scope the Docker networks it creates to a particular file or profile, `docker compose ... down` may attempt to delete a network that is still in use by a different database.
   The error looks like the following, and can be ignored:
 

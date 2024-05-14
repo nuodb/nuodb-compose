@@ -29,7 +29,8 @@ services:
     volumes:
       - ./scripts:/usr/local/scripts
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
-      - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}  
+      - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}
+      - ${LICENSE_PATH:-./empty-file}:/etc/nuodb/nuodb.lic
 
     command: [ "/usr/local/scripts/start-monolith" ]  
 

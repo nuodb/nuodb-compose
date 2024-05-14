@@ -17,6 +17,10 @@ ENGINE_MEM=1Gi
 SQL_ENGINE=vee
 LOGDIR=/var/log/nuodb
 
+# local path to a NuoDB license file
+# Contact NuoDB support on NuoDB.support at 3ds.com to request a license.
+LICENSE_PATH=
+
 # docker compose restart policy.
 # Set to one of:
 # - "no"
