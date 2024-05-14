@@ -61,7 +61,7 @@ Note that all container names will have the `project` name embedded, which is th
 1. Copy the `env-default` file to `.env` (this step is _NOT_ optional).
 
 1. If using NuoDB v6.0.2 or greater, acquire a NuoDB license file.
-   - If you or your organisation do not have a valid NuoDB license file, contact NuoDB support to request one: NuoDB.Support@3ds.com.
+   - If you or your organisation do not have a valid NuoDB license file, contact NuoDB support to request one: NuoDB.Support...at...3ds.com.
    - Store your NuoDB license file somewhere on your local disk
 
 1. Edit the `.env` file:
