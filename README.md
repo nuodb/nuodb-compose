@@ -54,17 +54,17 @@ Note that all container names will have the `project` name embedded, which is th
 
 ### Getting Started ##
 
-0. Clone this repo.
+1. Clone this repo.
 
 1. `cd` to the `nuodb` directory.
 
-2. Copy the `env-default` file to `.env` (this step is _NOT_ optional).
+1. Copy the `env-default` file to `.env` (this step is _NOT_ optional).
 
-3. If using NuoDB v6 or greater, acquire a NuoDB license file.
-   - If you or your organisation do not have a valid NuoDB license file, contact NuoDB support to request one.
-   - store your NuoDB license file somewhere on your local disk
+1. If using NuoDB v6.0.2 or greater, acquire a NuoDB license file.
+   - If you or your organisation do not have a valid NuoDB license file, contact NuoDB support to request one: NuoDB.Support@3ds.com.
+   - Store your NuoDB license file somewhere on your local disk
 
-4. Edit the `.env` file:
+1. Edit the `.env` file:
     - `ENGINE_MEM`
       - Sets the memory cache size for each TE and SM.
     - `SQL_ENGINE`:
