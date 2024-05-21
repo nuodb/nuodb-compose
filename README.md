@@ -4,7 +4,7 @@ Docker compose files for starting a NuoDB database on your local host;
 
 - and, optionally, initializing the database state from an existing NuoDB backup.
 
-_NOTE:_ `docker compose` is intentionally a very simple tool - so the commands are more wordy than would be ideal, some desirable automation is just not possible, and some benign error messages are occasionally emitted.
+_NOTE:_ `docker compose` is intentionally a very simple tool - so the commands are more wordy than would be ideal; some desirable automation is just not possible; and some benign error messages are occasionally emitted.
 
 ## Use Cases ##
 
@@ -29,6 +29,7 @@ _NOTE:_ `docker compose` is intentionally a very simple tool - so the commands a
 - `monolith`
   - This is a database in a single container (monolith). All 3 NuoDB processes are running inside the same container.
     - This is _not_ how NuoDB is deployed in production, but is an easily managed, resource optimized, option on a local machine.
+    - This is the simplest configuration for a developer to run a local DB for testing and debugging.
 - `instadb`
   - This is a database in a single container (as per `monolith`) - but with _dynamic port mapping_.
     - This allows multiple `instadb` databases to run on the same host simultaneously.
@@ -54,13 +55,17 @@ Note that all container names will have the `project` name embedded, which is th
 
 ### Getting Started ##
 
-0. Clone this repo.
+1. Clone this repo.
 
 1. `cd` to the `nuodb` directory.
 
-2. Copy the `env-default` file to `.env` (this step is _NOT_ optional).
+1. Copy the `env-default` file to `.env` (this step is _NOT_ optional).
 
-3. Edit the `.env` file:
+1. If using NuoDB v6.0.2 or greater, acquire a NuoDB license file.
+   - If you or your organisation do not have a valid NuoDB license file, contact NuoDB support to request one: NuoDB.Support...at...3ds.com.
+   - Store your NuoDB license file somewhere on your local disk
+
+1. Edit the `.env` file:
     - `ENGINE_MEM`
       - Sets the memory cache size for each TE and SM.
     - `SQL_ENGINE`:
@@ -70,6 +75,9 @@ Note that all container names will have the `project` name embedded, which is th
         - either in the `.env` file, _or_ by setting `EXTERNAL_ADDRESS` on the `docker compose up` command-line (Linux/MacOS) or by first setting `EXTERNAL_ADDRESS` as an environment variable (Windows);
         - set to the address of the local host machine (Ex `192.168.0.123`);
         - on some platforms, setting `EXTERNAL_ADDRESS` to `127.0.0.1` also works;
+    - `LICENSE_PATH` :
+      - If you have a valid NuoDB license file - per step #3 above - then set `LICENSE_PATH` to point to that file path.
+        - Eg: `LICENSE_PATH=./nuodb.lic`
     - `IMPORT_LOCAL`, `IMPORT_REMOTE`, `IMPORT_TIMEOUT`, `IMPORT_AUTH`, `IMPORT_LEVEL`
       - If you want to import initial state from a database backup into the new database, set `IMPORT_LOCAL` and/or `IMPORT_REMOTE` (see `Notes` below for details of `IMPORT_LOCAL` and `IMPORT_REMOTE`);
         - the `import` operation is only performed when the archive dir is _empty_ - so the SM container can be stopped and restarted without being reinitialized each time.
@@ -82,15 +90,20 @@ However, with newer versions of `docker` both `docker-compose` _and_ `docker com
 ### About Managing Databases ###
 
 - A database is created using `docker compose ... up ...`;
+  - NOTE: the `docker compose ... down` command will _destroy_ the database and all its storage. More on this below:
 - A database can be `stopped` _WITHOUT_ deleting its storage:
   - `docker compose ... stop ...`;
 - A stopped database can be `restarted` and will _CONTINUE_ using its previous existing storage:
   - `docker compose ... start ...`;
+  - this is often needed after a host machine has been woken up after sleep/hibernation.
+- A database that _was_ running, but has stopped for some environmental reason, can be `restarted` with a single command:
+  - `docker compose ... restart`
+  - for example, if the host machine was hibernated, and then re-awakened, the database will typically need to be `restarted`.
 - A database is `deleted` _WITH_ its storage using:
   - `docker compose ... down`;
 - A client app connects to a database by configuring a port on the host network - set with the variable `EXTERNAL_ADDRESS` - into its connection string/params;
   - example: `EXTERNAL_ADDRESS=192.167.0.123` if the local host's network address is `192.168.0.123`
-  - example: `EXTERNAL_ADDRESS=localhost` if `docker` can resolve 
+  - example: `EXTERNAL_ADDRESS=localhost` if `docker` can resolve `localhost`.
 - Because `docker compose` does not scope the Docker networks it creates to a particular file or profile, `docker compose ... down` may attempt to delete a network that is still in use by a different database.
   The error looks like the following, and can be ignored:
 
@@ -113,6 +126,7 @@ _NOTE:_ the `distributed` database is the default configuration.
 - `stop` (temporarily) all containers with: `docker compose stop`
   - this will _NOT_ delete the database storage;
 - `restart` a stopped database with: `docker compose start`
+- `stop` and `start` a database in limbo with `docker compose restart`
 - `delete` - including storage - with `docker compose down`
 - `connect` to a `distributed` database using the value of `EXTERNAL_ADDRESS` in the connection string.
 
@@ -122,7 +136,7 @@ _NOTE:_ the `distributed` database is the default configuration.
   - `docker compose --profile scale-te2 up -d`
 - to scale in a `te2` on a `distributed` database:
   - `docker compose --profile scale-te2 stop`
-- to delete a `distributed` _plus_ its scaled-out `te2` in a single command:
+- to delete a `distributed` database _plus_ its scaled-out `te2` in a single command:
   - `docker compose --profile scale-te2 down`
 
 ### Managing a `monolith` Database ###
@@ -133,6 +147,7 @@ _NOTE:_ the `monolith` topology must be specified explicitly by using `-f monoli
 - `stop` (temporarily) all containers with: `docker compose -f monolith.yaml stop`
   - this will _NOT_ delete the database storage;
 - `restart` a stopped database with: `docker compose -f monolith.yaml start`
+- `stop` and `start` a database in limbo with `docker compose -f monolith.yaml restart`
 - `delete` - including storage - with `docker compose -f monolith down`
 - `connect` to a `monolith` database using the value of `EXTERNAL_ADDRESS` in the connection string;
   - example connection string: `jdbc:com.nuodb://192/.168.0.123/demo`
@@ -146,6 +161,7 @@ _NOTE:_ the `instadb` topology must be specified explicitly by using `-f instadb
 - `stop` (temporarily) all containers with: `docker compose -f instadb.yaml stop`
   - this will _NOT_ delete the database storage;
 - `restart` a stopped database with: `docker compose -f instadb.yaml start`
+- `stop` and `start` an instadb database in limbo with: `docker compose -f instadb.yaml restart`
 - `delete` - including storage - with `docker compose -f instadb.yaml down`
 - `connect` to an `instadb` by setting `direct=true` in the connection properties;
   - and setting the value of `EXTERNAL_ADDRESS:<mapped-port>` in the connection string;
@@ -171,11 +187,12 @@ In this example, to connect to the database (actually to its TE) use the value o
 
 ### Managing _Multiple_ `instadb` Databases ###
 
-- `create` an additional `instadb` with: `docker compose -p <new-project-name> -f instadb.yaml up -d`;
-- `stop` (temporarily) all containers of a specific `instadb` with: `docker compose -p <project-name> -f instadb.yaml stop`;
+- `create` an additional `instadb` with: `docker compose -p <new-project-name> -f instadb.yaml up -d`
+- `stop` (temporarily) all containers of a specific `instadb` with: `docker compose -p <project-name> -f instadb.yaml stop`
   - this will _NOT_ delete the database storage;
-- `restart` a stopped database with: `docker compose -p <project-name> -f intadb.yaml start`;
-- `delete` - including storage - with `docker compose -p <project-name> -f instadb.yaml down`;
+- `restart` a stopped database with: `docker compose -p <project-name> -f intadb.yaml start`
+- `stop` and `start` an instadb in limbo with: `docker compose -p <project-name> -f instadb.yaml restart`
+- `delete` - including storage - with `docker compose -p <project-name> -f instadb.yaml down`
 
 ## Importing Existing Data ##
 
@@ -205,7 +222,8 @@ Steps required:
   - Example: `sftp://sftp.some.domain.com/backup-4-3.tz`
   
   _Note:_ The SM container will download a `remote` file via the URL and extract it into the archive directory prior to starting the SM process.
-- If you set _both_ `IMPORT_LOCAL` _and_ `IMPORT_REMOTE`, then `IMPORT_REMOTE` is treated as the remote source, and `IMPORT_LOCAL` is treated as a locally cached copy. - Hence the behaviour is as follows:
+- If you set _both_ `IMPORT_LOCAL` _and_ `IMPORT_REMOTE`, then `IMPORT_REMOTE` is treated as the remote source, and `IMPORT_LOCAL` is treated as a locally cached copy.
+  Hence the behaviour is as follows:
   - If `IMPORT_LOCAL` is a _non-empty_ `file` or `directory`, then it is used directly, and `IMPORT_REMOTE` is ignored.
   - If `IMPORT_LOCAL` is an _empty_ `file` then `IMPORT_REMOTE` is downloaded into `IMPORT_LOCAL`, and the `import` is then performed by `extracting` from `IMPORT_LOCAL` into the `archive`;
     - note this _only_ works for a `tar.gzip` file of an `archive` (see above).
@@ -290,3 +308,6 @@ Steps required:
      ⠿ Network nuodb_net          Error                                                                                                                                                0.0s
     failed to remove network df0df85905b1702fea9c1a20a1142b9f4ff85f07844087b520f072c8a6af5e68: Error response from daemon: error while removing network: network nuodb_net id df0df85905b1702fea9c1a20a1142b9f4ff85f07844087b520f072c8a6af5e68 has active endpoints
     ```
+
+    If you think that the network _should_ have been deleted, then run the `docker compose ... down` command once more.
+    If the end-points have now been successfully deleted, the network delete will now succeed.

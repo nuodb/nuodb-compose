@@ -24,6 +24,7 @@ services:
     volumes:
       - ./scripts:/usr/local/scripts
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
+      - ${LICENSE_PATH:-./empty-file}:/etc/nuodb/nuodb.lic
     
     command: [ "/usr/local/scripts/start-nuoadmin" ]
 

@@ -6,3 +6,4 @@ nuodb/*.tgz
 nuodb/*.tar.gz
 .DS_Store
 nuodb/.DS_Store
+nuodb/*.lic

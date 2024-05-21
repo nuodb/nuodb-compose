@@ -8,7 +8,7 @@
 #   Set as an environment variable (all platforms).
 #   Value set in .env file.
 
-NUODB_IMAGE=nuodb/nuodb-ce:5.0.1-2
+NUODB_IMAGE=nuodb/nuodb-ce:5.1.2-5
 
 DB_NAME=demo
 DB_USER=dba
@@ -16,6 +16,10 @@ DB_PASSWORD=dba
 ENGINE_MEM=1Gi
 SQL_ENGINE=vee
 LOGDIR=/var/log/nuodb
+
+# local path to a NuoDB license file
+# Contact NuoDB support on NuoDB.support at 3ds.com to request a license.
+LICENSE_PATH=
 
 # docker compose restart policy.
 # Set to one of:
