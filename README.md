@@ -76,7 +76,7 @@ Note that all container names will have the `project` name embedded, which is th
         - set to the address of the local host machine (Ex `192.168.0.123`);
         - on some platforms, setting `EXTERNAL_ADDRESS` to `127.0.0.1` also works;
     - `LICENSE_PATH` :
-      - If you have a valid NuoDB license file - per step #3 above - then set `LICENSE_PATH` to point to that file path.
+      - If you have a valid NuoDB license file - per step #4 above - then set `LICENSE_PATH` to point to that file path.
         - Eg: `LICENSE_PATH=./nuodb.lic`
     - `IMPORT_LOCAL`, `IMPORT_REMOTE`, `IMPORT_TIMEOUT`, `IMPORT_AUTH`, `IMPORT_LEVEL`
       - If you want to import initial state from a database backup into the new database, set `IMPORT_LOCAL` and/or `IMPORT_REMOTE` (see `Notes` below for details of `IMPORT_LOCAL` and `IMPORT_REMOTE`);
