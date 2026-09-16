@@ -8,7 +8,7 @@
 #   Set as an environment variable (all platforms).
 #   Value set in .env file.
 
-NUODB_IMAGE=nuodb/nuodb:6.0.2
+NUODB_IMAGE=nuodb/nuodb:8.0.1
 
 DB_NAME=demo
 DB_USER=dba

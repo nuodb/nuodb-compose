@@ -1,4 +1,3 @@
-version: '3'
 
 networks:
   net:
@@ -218,7 +217,7 @@ services:
 
   nuocd-te2:
     image: nuodb/nuodb-collector:latest
-    profiles: [ "scale-te2" ]
+    profiles: [ "insights-te2" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     networks:
