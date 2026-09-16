@@ -20,6 +20,7 @@ _NOTE:_ `docker compose` is intentionally a very simple tool - so the commands a
 ## Configurations Supported ##
 
 - `distributed` (default)
+Enabled in the default `docker-compose` file.
   - This is a database comprising a _separate_ container for each database process:
     - Separate AP (admin), TE, and SM containers - one for each NuoDB process;
     - This is the same topology used when NuoDB is deployed in production and under Kubernetes, but may be overkill for a local machine - especially a laptop.
@@ -27,10 +28,12 @@ _NOTE:_ `docker compose` is intentionally a very simple tool - so the commands a
   - This is a database comprising 3 separate containers for the database processes (as above), plus additional containers including `influxdb` and `grafana` to enable metrics publishing and display.
   - This is currently the _only_ configuration that supports NuoDB `Insights` monitoring.
 - `monolith`
+Enabled using the `--file monolith.yaml` command option.
   - This is a database in a single container (monolith). All 3 NuoDB processes are running inside the same container.
     - This is _not_ how NuoDB is deployed in production, but is an easily managed, resource optimized, option on a local machine.
     - This is the simplest configuration for a developer to run a local DB for testing and debugging.
 - `instadb`
+Enabled using the `--file instadb.yaml` command option.
   - This is a database in a single container (as per `monolith`) - but with _dynamic port mapping_.
     - This allows multiple `instadb` databases to run on the same host simultaneously.
     - The downside is that because of the dynamically-mapped ports, the mapped public port cannot be predicted, and so external connections (such as non-containerized applications running on the same computer) will need to use the `direct=true` connection property;
@@ -41,12 +44,15 @@ These Docker compose files will create:
 - A new Docker network specifically for the project;
 - A database in one of 4 possible configurations (see above).
 
+### Monitoring a database ###
+NuoDB `insights` can be added to a `distributed` database
+- See the section below on `Monitoring a distributed database`
+
 ### Scaling a Database ##
-
 A second TE can be added to a `distributed` database
+- See the section below on `Scaling out a distributed database`
 
-- See the `scale-te2` profile.
-
+### docker compose project ###
 Note that all container names will have the `project` name embedded, which is the name of the directory (`nuodb`), but you can override the project name using the `-p` option to `docker compose`.
 
 - This default is fine for all configurations _except_ `instadb` databases (you can use the default for your first `instadb` database, but all subsequent databases must be named explicitly using `-p` to ensure unique container names).
@@ -116,7 +122,7 @@ However, with newer versions of `docker` both `docker-compose` _and_ `docker com
 
 - `docker up` is used to create the database container and start it running.
 - You can stop and restart the container using `docker stop` and `docker start` - no database data will be lost.
-- `docker down` _destroys_ the container and your database will be lost.
+- `docker down` _destroys_ the container(s) and your database will be lost.
 
 ### Managing a `distributed` Database ###
 
@@ -130,14 +136,31 @@ _NOTE:_ the `distributed` database is the default configuration.
 - `delete` - including storage - with `docker compose down`
 - `connect` to a `distributed` database using the value of `EXTERNAL_ADDRESS` in the connection string.
 
-#### Scaling Out a `distributed` Database ####
+#### Monitoring a distributed database ####
+- To start a `distributed` database complete with `insights` monitoring;
+_OR_ to _add_ `insights` monitoring to an _existing_ `distributed` database:
+  - `docker compose --profile insights up -d`
+- To delete a `distributed` database:
+  - `docker compose --profile insights down`
 
-- To scale out a `distributed` database with a _second_ TE:
+#### Scaling Out a `distributed` Database ####
+- To start a `distributed` database plus a _second_ TE in a single command;
+_OR_ to scale out an existing `distributed` database with a _second_ TE:
   - `docker compose --profile scale-te2 up -d`
+- An _alternative_ command to just _ADD_ a _second_ TE to an _existing_ `distributed` database:
+  - `docker compose up te2 -d`
 - to scale in a `te2` on a `distributed` database:
   - `docker compose --profile scale-te2 stop`
+  - OR, alternatively `docker compose stop te2`
+  - OR, alternatively, `docker compose down te2`
 - to delete a `distributed` database _plus_ its scaled-out `te2` in a single command:
   - `docker compose --profile scale-te2 down`
+
+##### Scaling plus monitoring #####
+- To start a `distributed` database _with_ `insights` _and_ a second TE:
+  `docker compose --profile insights --profile scale-te2 --profile insights-te2 up -d`
+- To delete a scaled-out database _and_ its `insights` monitoring _and_ its second TE:
+  - `docker compose --profile insights --profile insights-te2 --profile scale-te2 down`
 
 ### Managing a `monolith` Database ###
 
