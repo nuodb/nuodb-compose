@@ -44,6 +44,7 @@ services:
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
+      ENGINE_PORT: "48006"
     hostname: sm1
     depends_on:
       - nuoadmin1
@@ -71,6 +72,7 @@ services:
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
+      ENGINE_PORT: "48006"
     hostname: sm2
     depends_on:
       - nuoadmin1
