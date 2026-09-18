@@ -22,10 +22,10 @@ _NOTE:_ `docker compose` is intentionally a very simple tool - so the commands a
 - `distributed` (default)
 Enabled in the default `docker-compose` file.
   - This is a database comprising a _separate_ container for each database process:
-    - Separate AP (admin), TE, and SM containers - one for each NuoDB process;
+    - Separate AP (admin), TE, and SM containers - one container for each NuoDB process;
     - This is the same topology used when NuoDB is deployed in production and under Kubernetes, but may be overkill for a local machine - especially a laptop.
 - `distributed + insights`
-  - This is a database comprising 3 separate containers for the database processes (as above), plus additional containers including `influxdb` and `grafana` to enable metrics publishing and display.
+  - This is a database comprising separate containers for the database processes (as above), plus additional containers including `influxdb` and `grafana` to enable metrics publishing and display.
   - This is currently the _only_ configuration that supports NuoDB `Insights` monitoring.
 - `monolith`
 Enabled using the `--file monolith.yaml` command option.
@@ -49,7 +49,7 @@ NuoDB `insights` can be added to a `distributed` database
 - See the section below on `Monitoring a distributed database`
 
 ### Scaling a Database ##
-A second TE can be added to a `distributed` database
+A `distributed` database can be scaled out with additional SM and TE prpcesses - each in a separate container.
 - See the section below on `Scaling out a distributed database`
 
 ### docker compose project ###
@@ -80,7 +80,7 @@ Note that all container names will have the `project` name embedded, which is th
       - If you want to access the database from outside the `docker network` - for example from an app running directly on the local host - then set `EXTERNAL_ADDRESS`;
         - either in the `.env` file, _or_ by setting `EXTERNAL_ADDRESS` on the `docker compose up` command-line (Linux/MacOS) or by first setting `EXTERNAL_ADDRESS` as an environment variable (Windows);
         - set to the address of the local host machine (Ex `192.168.0.123`);
-        - on some platforms, setting `EXTERNAL_ADDRESS` to `127.0.0.1` also works;
+        - most Docker Desktop implementation support the meta-address: `host.docker.internal`;
     - `LICENSE_PATH` :
       - If you have a valid NuoDB license file - per step #4 above - then set `LICENSE_PATH` to point to that file path.
         - Eg: `LICENSE_PATH=./nuodb.lic`
@@ -134,7 +134,10 @@ _NOTE:_ the `distributed` database is the default configuration.
 - `restart` a stopped database with: `docker compose start`
 - `stop` and `start` a database in limbo with `docker compose restart`
 - `delete` - including storage - with `docker compose down`
-- `connect` to a `distributed` database using the value of `EXTERNAL_ADDRESS` in the connection string.
+- `access` a `distributed` database _internally_ from a `nuoadmin` container
+- `connect` to a `distributed` database externally using the value of `EXTERNAL_ADDRESS` in the connection string.
+- `scale` a running `distributed` database with `start` specifying the additional engines
+  - See `Scaling a distributed database` below
 
 #### Monitoring a distributed database ####
 - To start a `distributed` database complete with `insights` monitoring;
@@ -143,11 +146,11 @@ _OR_ to _add_ `insights` monitoring to an _existing_ `distributed` database:
 - To delete a `distributed` database:
   - `docker compose --profile insights down`
 
-#### Scaling Out a `distributed` Database ####
+#### Scaling a `distributed` Database ####
 - To start a `distributed` database plus a _second_ TE in a single command;
 _OR_ to scale out an existing `distributed` database with a _second_ TE:
   - `docker compose --profile scale-te2 up -d`
-- An _alternative_ command to just _ADD_ a _second_ TE to an _existing_ `distributed` database:
+- An _alternative_ command to just _ADD_ the _second_ TE to an _existing_ `distributed` database:
   - `docker compose up te2 -d`
 - to scale in a `te2` on a `distributed` database:
   - `docker compose --profile scale-te2 stop`
@@ -155,12 +158,33 @@ _OR_ to scale out an existing `distributed` database with a _second_ TE:
   - OR, alternatively, `docker compose down te2`
 - to delete a `distributed` database _plus_ its scaled-out `te2` in a single command:
   - `docker compose --profile scale-te2 down`
+- to specify `2` additional TEs (total `3`) specify `--profile scale-te3` instead (or in addition to) `--profile scale-te2`
+  - OR specify _both_ `te2` and `te3`.
+- to specify `3` additional TEs (total `4`), specify `--profile scale-te4`
+  - or specify all of `te2 te3 te4`.
+
+##### Scaling SMs #####
+A `distributed` database can also have a second SM scaled out/in, in a similar fashion to scaling TEs.
+- Specify `--profile scale-sm2`
+  - OR specify `sm2`.
+
+So, to create/delete a `distributed` database with `2` SMs and `4` TES:
+- `docker compose --profile scale-sm2 --profile scale-te4 up -d`
+- `docker compose --profile scale-sm2 --profile scale-te4 down`
 
 ##### Scaling plus monitoring #####
+*NOTE:* When scaling `insights` pods, _both_ the `insights-xyN` _AND_ `scale-xyN` profiles are required.
+(Because the service in the `insights-xyN` profile refers to the service in the `scale-xyN` profile.)
 - To start a `distributed` database _with_ `insights` _and_ a second TE:
   `docker compose --profile insights --profile scale-te2 --profile insights-te2 up -d`
 - To delete a scaled-out database _and_ its `insights` monitoring _and_ its second TE:
   - `docker compose --profile insights --profile insights-te2 --profile scale-te2 down`
+
+So, to scale out/in a database with `2` SMs and `4` TEs, the command is:
+- `docker compose --profile scale-sm2 --profile scale-te2 --profile scale-te3 --profile scale-te4 --profile insights --profile insights-sm2 --profile insights-te2 --profile insights-te3 --profile insights-te4 up/down [-d]`
+(Whew!!)
+
+_NOTE 2:_ This explicit itemizing of profiles is _ONLY_ needed for commands involving `insights` _PLUS_ one or more scaled-out containers.
 
 ### Managing a `monolith` Database ###
 
