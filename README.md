@@ -49,7 +49,7 @@ NuoDB `insights` can be added to a `distributed` database
 - See the section below on `Monitoring a distributed database`
 
 ### Scaling a Database ##
-A `distributed` database can be scaled out with additional SM and TE prpcesses - each in a separate container.
+A `distributed` database can be scaled out with additional SM and TE processes - each in a separate container.
 - See the section below on `Scaling out a distributed database`
 
 ### docker compose project ###
@@ -185,6 +185,12 @@ So, to scale out/in a database with `2` SMs and `4` TEs, the command is:
 (Whew!!)
 
 _NOTE 2:_ This explicit itemizing of profiles is _ONLY_ needed for commands involving `insights` _PLUS_ one or more scaled-out containers.
+
+##### Scaling plus monitoring #####
+- To start a `distributed` database _with_ `insights` _and_ a second TE:
+  `docker compose --profile insights --profile scale-te2 --profile insights-te2 up -d`
+- To delete a scaled-out database _and_ its `insights` monitoring _and_ its second TE:
+  - `docker compose --profile insights --profile insights-te2 --profile scale-te2 down`
 
 ### Managing a `monolith` Database ###
 
