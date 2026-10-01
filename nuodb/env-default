@@ -70,4 +70,11 @@ IMPORT_MOUNT=/var/opt/nuodb/import
 # NUOCMD_API_SERVER=nuoadmin1:8888
 
 # Uncomment and set to enable external access to the database.
-# EXTERNAL_ADDRESS=
+# Possible meta-values include:
+# * host.docker.internal (many Docker Desktop versions)
+# * host-gateway (native docker on linux)
+#
+# In most Docker Desktop versions, the meta-value 'host.docker.internal' will be set to
+# the address of the docker host.
+#
+# EXTERNAL_ADDRESS=host.docker.internal

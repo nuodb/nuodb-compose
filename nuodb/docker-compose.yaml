@@ -27,7 +27,7 @@ services:
     
     command: [ "/usr/local/scripts/start-nuoadmin" ]
 
-  sm:
+  sm1:
     image: $NUODB_IMAGE
     # profiles: [ "distributed" ]
     restart: ${RESTART_POLICY:-unless-stopped}
@@ -43,7 +43,8 @@ services:
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
       DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
-      STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}      
+      STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
+      ENGINE_PORT: "48006"
     hostname: sm1
     depends_on:
       - nuoadmin1
@@ -54,6 +55,35 @@ services:
 
     command: [ "/usr/local/scripts/start-nuosm" ]
 
+  sm2:
+    image: $NUODB_IMAGE
+    profiles: [ "scale-sm2" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
+
+    networks:
+      net:
+
+    # Do NOT remove this env_file value!!
+    env_file: .env
+
+    environment:
+      PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
+      NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
+      ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
+      DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
+      STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
+      ENGINE_PORT: "48006"
+    hostname: sm2
+    depends_on:
+      - nuoadmin1
+      - sm1
+
+    volumes:
+      - ./scripts:/usr/local/scripts
+      - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
+      - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}
+
+    command: [ "/usr/local/scripts/start-nuosm" ]
   te1:
     image: $NUODB_IMAGE
     # profiles: [ "distributed" ]
@@ -70,10 +100,11 @@ services:
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te1}
+      ENGINE_PORT: "48006"
     hostname: te1
     depends_on:
       - nuoadmin1
-      - sm
+      - sm1
     ports:
       - 48006:48006
     volumes:
@@ -84,7 +115,7 @@ services:
 
   te2:
     image: $NUODB_IMAGE
-    profiles: [ "scale-te2" ]
+    profiles: [ "scale-te2", "scale-te3", "scale-te4" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     networks:
@@ -98,20 +129,25 @@ services:
       NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
       EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te2}
+      ENGINE_PORT: "48007"
     hostname: te2
+    depends_on:
+      - nuoadmin1
+      - sm1
 
     ports:
-      - 48007:48006
+      - 48007:48007
     volumes:
       - ./scripts:/usr/local/scripts
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
     
     command: [ "/usr/local/scripts/start-nuote" ]
 
-  monolith:
+  te3:
     image: $NUODB_IMAGE
-    profiles: [ "monolith" ]
+    profiles: [ "scale-te3", "scale-te4" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
     networks:
       net:
 
@@ -119,28 +155,29 @@ services:
     env_file: .env
 
     environment:
-      PEER_ADDRESS: ${PEER_ADDRESS:-db}
-      NUODB_DOMAIN_ENTRYPOINT: ${PEER_ADDRESS:-db}
-      NUOCMD_API_SERVER: localhost:8888
+      PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
+      NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
-      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-localhost}
-      ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
-      DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
-    hostname: ${PEER_ADDRESS:-db}
+      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te2}
+      ENGINE_PORT: "48008"
+    hostname: te3
+    depends_on:
+      - nuoadmin1
+      - sm1
+
     ports:
-      - 48004-48006:48004-48006
-      - 8888:8888
+      - 48008:48008
     volumes:
       - ./scripts:/usr/local/scripts
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
-      - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}  
+    
+    command: [ "/usr/local/scripts/start-nuote" ]
 
-    command: [ "/usr/local/scripts/start-monolith" ]  
-
-  instadb:
+  te4:
     image: $NUODB_IMAGE
-    profiles: [ "instadb" ]
+    profiles: [ "scale-te4" ]
     restart: ${RESTART_POLICY:-unless-stopped}
+
     networks:
       net:
 
@@ -148,23 +185,23 @@ services:
     env_file: .env
 
     environment:
-      PEER_ADDRESS: localhost
-      NUODB_DOMAIN_ENTRYPOINT: localhost
-      NUOCMD_API_SERVER: localhost:8888
+      PEER_ADDRESS: ${PEER_ADDRESS:-nuoadmin1}
+      NUOCMD_API_SERVER: ${PEER_ADDRESS:-nuoadmin1}:8888
       STARTUP_TIMEOUT: ${STARTUP_TIMEOUT:-90}
-      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-localhost}
-      ARCHIVE_DIR: ${ARCHIVE_PATH:-/var/opt/nuodb/archive}
-      DB_OPTIONS: "mem ${ENGINE_MEM:-1Gi} execution-engine ${SQL_ENGINE:-vee} ${ENGINE_OPTIONS:-}"
+      EXTERNAL_ADDRESS: ${EXTERNAL_ADDRESS:-te2}
+      ENGINE_PORT: "48009"
+    hostname: te4
+    depends_on:
+      - nuoadmin1
+      - sm1
+
     ports:
-      - :48004-48006
-      - :8888
+      - 48009:48009
     volumes:
       - ./scripts:/usr/local/scripts
       - ./scripts/stop-nuodb:/usr/local/bin/stop-nuodb
-      - ${IMPORT_LOCAL:-./empty-file}:${IMPORT_MOUNT:-/var/tmp/env}  
-
-    command: [ "/usr/local/scripts/start-monolith" ]
-
+    
+    command: [ "/usr/local/scripts/start-nuote" ]
 
   influxdb:
     image: influxdb:1.8
@@ -181,7 +218,7 @@ services:
     volumes:
       - ./conf/initdb.sh:/docker-entrypoint-initdb.d/initdb.sh
 
-  nuocd-sm:
+  nuocd-sm1:
     image: nuodb/nuodb-collector:latest
     profiles: [ "insights" ]
     restart: ${RESTART_POLICY:-unless-stopped}
@@ -191,12 +228,29 @@ services:
 
     depends_on:
       - nuoadmin1
-      - sm
+      - sm1
       - influxdb
     environment:
       INFLUXURL: http://influxdb:8086
       NUOCD_HOSTNAME: sm1
-    pid: 'service:sm'
+    pid: 'service:sm1'
+
+  nuocd-sm2:
+    image: nuodb/nuodb-collector:latest
+    profiles: [ "insights-sm2" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
+
+    networks:
+      net:
+
+    depends_on:
+      - nuoadmin1
+      - sm2
+      - influxdb
+    environment:
+      INFLUXURL: http://influxdb:8086
+      NUOCD_HOSTNAME: sm1
+    pid: 'service:sm1'
 
   nuocd-te1:
     image: nuodb/nuodb-collector:latest
@@ -217,7 +271,7 @@ services:
 
   nuocd-te2:
     image: nuodb/nuodb-collector:latest
-    profiles: [ "insights-te2" ]
+    profiles: [ "insights-te2", "insights-te3", "insights-te4" ]
     restart: ${RESTART_POLICY:-unless-stopped}
 
     networks:
@@ -231,7 +285,41 @@ services:
       INFLUXURL: http://influxdb:8086
       NUOCD_HOSTNAME: te2
     pid: 'service:te2'
-    
+
+  nuocd-te3:
+    image: nuodb/nuodb-collector:latest
+    profiles: [ "insights-te3", "insights-te4" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
+
+    networks:
+      net:
+
+    depends_on:
+      - nuoadmin1
+      - te3
+      - influxdb
+    environment:
+      INFLUXURL: http://influxdb:8086
+      NUOCD_HOSTNAME: te3
+    pid: 'service:te3'
+
+  nuocd-te4:
+    image: nuodb/nuodb-collector:latest
+    profiles: [ "insights-te4" ]
+    restart: ${RESTART_POLICY:-unless-stopped}
+
+    networks:
+      net:
+
+    depends_on:
+      - nuoadmin1
+      - te4
+      - influxdb
+    environment:
+      INFLUXURL: http://influxdb:8086
+      NUOCD_HOSTNAME: te4
+    pid: 'service:te4'
+
   grafana:
     image: grafana/grafana:7.5.4
     profiles: [ "insights" ]
